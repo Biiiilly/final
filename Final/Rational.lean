@@ -3,6 +3,7 @@ Copyright (c) 2024 Jiale Miao. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Jiale Miao
 -/
+import Mathlib.Tactic.Change
 import Final.Nonarchimedean
 import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
@@ -456,7 +457,7 @@ lemma list.map_with_index_sum_to_finset_sum' {β A : Type*} [AddCommMonoid A] {f
     f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) :=
 by
   sorry
-#check List.reverseRecOn
+
 lemma list.map_with_index_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
   {L : List β}  [Inhabited β] : (L.mapIdx f).sum = ∑ i in Finset.range L.length,
     f i ((List.get? L i).orElse default).get! :=
@@ -471,307 +472,285 @@ by
       intros x hx
       congr 2
       rw [Finset.mem_range] at hx
-      rw [List.nth_append hx]
+      -- rw [List.nth_append hx]
       sorry
-    · sorry
-
-/-
-  · simp
-  · intros M a IH,
-    simp [list.map_with_index_append, IH],
-    rw finset.sum_range_succ,
-    congr' 1,
-    { apply finset.sum_congr rfl,
-      intros x hx,
-      congr' 2,
-      rw finset.mem_range at hx,
-      rw list.nth_append hx, },
-    { simp, } },
+    · simp only [List.get?_concat_length, Option.some_orElse']
+      exact rfl
 
 -- This is lemma 1.1
 lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n)
   (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
     ∀ n : ℕ, f n ≤ n ^ α :=
-begin
-  have : f n₀ = n₀ ^ α,
-  { rw [dα, Real.log_div_log],
-    apply eq.symm,
-    apply Real.rpow_logb,
-    { norm_cast,
-      exact lt_trans zero_lt_one (aux1 hf dn₀) },
-    { apply ne_of_gt,
-      norm_cast,
-      exact aux1 hf dn₀ },
-    { have hn₀ := Nat.find_spec hf,
-      rw ←dn₀ at hn₀,
-      exact lt_trans zero_lt_one hn₀ } },
-  have hα : 0 < α,
-  { rw dα,
-    apply div_pos,
-    { apply Real.log_pos,
-      rw dn₀,
-      exact Nat.find_spec hf },
-    { apply Real.log_pos,
-      norm_cast,
-      exact aux1 hf dn₀ } },
-  let C : ℝ := ((n₀ : ℝ) ^ α) / ((n₀ : ℝ) ^ α - 1),
-  have dc : C = ((n₀ : ℝ) ^ α) / ((n₀ : ℝ) ^ α - 1) := rfl,
-  have hC : 0 < C,
-  { rw dc,
-    rw ← this,
-    have hn₀ := Nat.find_spec hf,
-    rw ←dn₀ at hn₀,
-    apply div_pos; linarith, }, -- easy to do
-  suffices : ∀ n : ℕ, f n ≤ C * ((n : ℝ) ^ α),
-  { intro n,
-    have limit' : filter.tendsto (λ N : ℕ, C ^ (1 / (N : ℝ))) filter.at_top (nhds 1),
-    { exact limit1 hC, }, --someone good at analysis
-    have limit'' : filter.tendsto
-      (λ N : ℕ, (C ^ (1 / (N : ℝ))) * (n ^ α)) filter.at_top (nhds (n ^ α)),
-    { have := filter.tendsto.mul_const (↑n ^ α) limit',
-      simp at this,
-      simp,
-      exact this, }, --following from limit'
-    have stupid : (0 : ℝ) ≤ n := by norm_cast; exact zero_le n, -- very easy
-    have aux : ∀ N : ℕ, (f (n)) ^ (N : ℝ) ≤ C * ((n ^ α) ^ (N : ℝ)),
-    { intro N,
-      rw ←Real.rpow_mul stupid,
-      nth_rewrite 1 mul_comm,
-      rw Real.rpow_mul stupid,
-      norm_cast,
-      rw ←mul_eq_pow,
-      specialize this (n ^ N),
-      norm_cast,
-      exact this, },
-    have aux1 : ∀ N : ℕ, 0 < N → f (n) ≤ (C ^ (1 / (N : ℝ))) * (n ^ α),
-    { intros N hN,
-      refine le_of_pow_le_pow N _ hN _,
-      { apply mul_nonneg,
-        { apply le_of_lt,
-          exact Real.rpow_pos_of_pos hC _, },
-        { exact Real.rpow_nonneg_of_nonneg stupid _, } },
-      { rw mul_pow,
-        repeat {rw [←Real.rpow_Nat_cast]},
-        rw [←Real.rpow_mul (le_of_lt hC), one_div],
-        have : (N : ℝ) ≠ 0,
-        { norm_cast,
-          rw push_neg.not_eq,
-          exact ne_of_gt hN, },
-        rw [inv_mul_cancel this, Real.rpow_one],
-        exact aux N, } },  --take nth root on both side
-    apply ge_of_tendsto limit'' _,
-    simp only [filter.eventually_at_top, ge_iff_le],
-    use 1,
-    intros b hb,
-    have : 0 < b := (by linarith),
-    exact aux1 b this, },
-  intro n,
-  by_cases n = 0,
-  { subst h,
-    simp [hα],
-    nlinarith [hC, Real.zero_rpow_nonneg α] },
-  have length_lt_one : 0 ≤ ((n₀.digits n).length : ℝ) - 1, -- Not sure whether this is useful or not
-  { norm_num,
-    sorry}, -- should be easy `digits_ne_nil_iff_ne_zero` might be useful
-  conv_lhs { rw ←Nat.of_digits_digits n₀ n },
-  rw Nat.of_digits_eq_sum_map_with_index,
-  rw list.map_with_index_sum_to_finset_sum',
-  simp only [Nat.cast_sum, Nat.cast_mul, Nat.cast_pow],
-  apply le_trans (Sum_le' (n₀.digits n).length _),
-  have aux' : 2 ≤ n₀ := by linarith [aux1 hf dn₀],
-  suffices goal_1 : ∑ i : finset.Iio (n₀.digits n).length,
-    f (((((n₀.digits n).nth_le i (finset.mem_Iio.1 i.2))) : ℚ)
-      * (n₀ : ℚ) ^ (i : ℕ)) = ∑ i : finset.Iio (n₀.digits n).length,
-        f (((n₀.digits n).nth_le i (finset.mem_Iio.1 i.2)))
-          * (f n₀) ^ (i : ℕ),
-  { rw goal_1,
-    clear goal_1,
-    have coef_ineq : ∀ i : finset.Iio (n₀.digits n).length,
-      f (((n₀.digits n).nth_le i (finset.mem_Iio.1 i.2))) ≤ 1,
-    { intro i,
-      have : ((n₀.digits n).nth_le i (finset.mem_Iio.1 i.2)) < n₀,
-      { have aux'' : ((n₀.digits n).nth_le i (finset.mem_Iio.1 i.2)) ∈ n₀.digits n,
-        { exact (Nat.digits n₀ n).nth_le_mem ↑i (finset.mem_Iio.mp i.property) },
-        exact Nat.digits_lt_base aux' aux'', },
-      apply le_of_not_gt,
-      subst dn₀,
-      rw gt_iff_lt,
-      exact Nat.find_min hf this },
-    rw this,
-    have goal1 : ∑ (i : (finset.Iio (n₀.digits n).length)),
-      f ((n₀.digits n).nth_le ↑i (finset.mem_Iio.1 i.2)) * (n₀ ^ α) ^ (i : ℕ) ≤
-        ∑ (i : (finset.Iio (n₀.digits n).length)), (n₀ ^ α) ^ (i : ℕ),
-    {sorry},
-    apply le_trans goal1,
-    clear goal1,
-    have goal2 : (∑ i : (finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ α) ^ (i : ℕ)) =
+by
+  have : f n₀ = n₀ ^ α
+  · rw [dα, Real.log_div_log]
+    apply Eq.symm
+    apply Real.rpow_logb
+    · norm_cast
+      exact lt_trans zero_lt_one (aux1 hf dn₀)
+    · apply ne_of_gt
+      norm_cast
+      exact aux1 hf dn₀
+    · have hn₀ := Nat.find_spec hf
+      rw [←dn₀] at hn₀
+      exact lt_trans zero_lt_one hn₀
+  have hα : 0 < α
+  · rw [dα]
+    apply div_pos
+    · apply Real.log_pos
+      rw [dn₀]
+      exact Nat.find_spec hf
+    · apply Real.log_pos
+      norm_cast
+      exact aux1 hf dn₀
+  let C : ℝ := ((n₀ : ℝ) ^ α) / ((n₀ : ℝ) ^ α - 1)
+  have dc : C = ((n₀ : ℝ) ^ α) / ((n₀ : ℝ) ^ α - 1) := rfl
+  have hC : 0 < C
+  · rw [dc]
+    rw [← this]
+    have hn₀ := Nat.find_spec hf
+    rw [←dn₀] at hn₀
+    apply div_pos
+    linarith
+    linarith
+  suffices : ∀ n : ℕ, f n ≤ C * ((n : ℝ) ^ α)
+  · intro n
+    have limit' : Filter.Tendsto (λ N : ℕ ↦ C ^ (1 / (N : ℝ))) Filter.atTop (nhds 1)
+    · exact limit1 hC
+    have limit'' : Filter.Tendsto
+      (λ N : ℕ ↦ (C ^ (1 / (N : ℝ))) * (n ^ α)) Filter.atTop (nhds (n ^ α))
+    · have := Filter.Tendsto.mul_const ((n : ℝ) ^ α) limit'
+      simp at this
+      simp
+      exact this
+    have stupid : (0 : ℝ) ≤ n := by norm_cast; exact zero_le n
+    have aux : ∀ N : ℕ, (f (n)) ^ (N : ℝ) ≤ C * ((n ^ α) ^ (N : ℝ))
+    · intro N
+      rw [←Real.rpow_mul stupid]
+      nth_rewrite 2 [mul_comm]
+      rw [Real.rpow_mul stupid]
+      norm_cast
+      rw [←mul_eq_pow]
+      specialize this (n ^ N)
+      norm_cast
+    have aux1 : ∀ N : ℕ, 0 < N → f (n) ≤ (C ^ (1 / (N : ℝ))) * (n ^ α)
+    · intros N hN
+      refine le_of_pow_le_pow N _ hN _
+      · apply mul_nonneg
+        · apply le_of_lt
+          exact Real.rpow_pos_of_pos hC _
+        · exact Real.rpow_nonneg_of_nonneg stupid _
+      { rw [mul_pow]
+        repeat
+          rw [←Real.rpow_Nat_cast]
+        rw [←Real.rpow_mul (le_of_lt hC), one_div]
+        have : (N : ℝ) ≠ 0
+        · norm_cast
+          rw [push_neg.not_eq]
+          exact ne_of_gt hN
+        rw [inv_mul_cancel this, Real.rpow_one]
+        exact aux N }
+    apply ge_of_tendsto limit'' _
+    simp only [Filter.eventually_atTop, ge_iff_le]
+    use 1
+    intros b hb
+    have : 0 < b := (by linarith)
+    exact aux1 b this
+  intro n
+  by_cases h : n = 0
+  · subst h
+    simp [hα]
+    nlinarith [hC, Real.zero_rpow_nonneg α]
+  have length_lt_one : 0 ≤ ((n₀.digits n).length : ℝ) - 1 -- Not sure whether this is useful or not
+  · norm_num
+    sorry -- should be easy `digits_ne_nil_iff_ne_zero` might be useful
+  conv_lhs =>
+    rw [←Nat.ofDigits_digits n₀ n]
+  rw [Nat.ofDigits_eq_sum_mapIdx]
+  rw [list.map_with_index_sum_to_finset_sum']
+  simp only [Nat.cast_sum, Nat.cast_mul, Nat.cast_pow]
+  apply le_trans (Sum_le' (n₀.digits n).length _)
+  have aux' : 2 ≤ n₀ := by linarith [aux1 hf dn₀]
+  suffices goal_1 : ∑ i : Finset.Iio (n₀.digits n).length,
+    f (((((n₀.digits n).nthLe i (Finset.mem_Iio.1 i.2))) : ℚ)
+      * (n₀ : ℚ) ^ (i : ℕ)) = ∑ i : Finset.Iio (n₀.digits n).length,
+        f (((n₀.digits n).nthLe i (Finset.mem_Iio.1 i.2)))
+          * (f n₀) ^ (i : ℕ)
+  · rw [goal_1]
+    have coef_ineq : ∀ i : Finset.Iio (n₀.digits n).length,
+      f (((n₀.digits n).nthLe i (Finset.mem_Iio.1 i.2))) ≤ 1
+    · intro i
+      have : ((n₀.digits n).nthLe i (Finset.mem_Iio.1 i.2)) < n₀
+      · have aux'' : ((n₀.digits n).nthLe i (Finset.mem_Iio.1 i.2)) ∈ n₀.digits n
+        · exact (Nat.digits n₀ n).nthLe_mem ↑i (Finset.mem_Iio.mp i.property)
+        exact Nat.digits_lt_base aux' aux''
+      apply le_of_not_gt
+      subst dn₀
+      rw [gt_iff_lt]
+      exact Nat.find_min hf this
+    rw [this]
+    have goal1 : ∑ i : (Finset.Iio (n₀.digits n).length),
+      f ((n₀.digits n).nthLe ↑i (Finset.mem_Iio.1 i.2)) * (n₀ ^ α) ^ (i : ℕ) ≤
+        ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ α) ^ (i : ℕ)
+    · sorry
+    apply le_trans goal1
+    have goal2 : (∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ α) ^ (i : ℕ)) =
     (((n₀ : ℝ) ^ (α * ((n₀.digits n).length - 1))) *
-      ∑ i : (finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ -α) ^ (i : ℕ)),
-    {sorry},
-    rw goal2,
-    clear goal2,
-    have goal3_aux : ∑ (i : (finset.Iio (n₀.digits n).length)),
-      ((n₀ : ℝ) ^ -α) ^ (i : ℕ) ≤ ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i,
-    {sorry},
-    have goal3_aux' : 0 ≤ (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))),
-    {sorry}, -- easy
+      ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
+    · sorry
+    rw [goal2]
+    have goal3_aux : ∑ i : (Finset.Iio (n₀.digits n).length),
+      ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ) ≤ ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i
+    · sorry
+    have goal3_aux' : 0 ≤ (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1)))
+    · sorry -- easy
     have goal3 : ((n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))))
-      * (∑ (i : (finset.Iio (n₀.digits n).length)), ((n₀ : ℝ) ^ -α) ^ (i : ℕ))
+      * (∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
         ≤ ((n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1)))) *
-          (∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i),
-    {sorry}, -- easy here
-    apply le_trans goal3,
-    clear goal3_aux goal3_aux' goal3,
-    have goal4 : ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i = C,
-    {sorry}, -- `tsum_geometric_of_abs_lt_1` is useful here.
-    rw goal4,
-    clear goal4,
-    rw mul_comm,
-    suffices : (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))) ≤ (n : ℝ) ^ α,
-    { nlinarith },
-    have goal : (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) ≤ (n : ℝ),
-    { have h' := Nat.base_pow_length_digits_le n₀ n aux' h,
-      have h'' : (n₀ : ℝ) ^ ((n₀.digits n).length : ℝ) ≤ (n₀ : ℝ) * (n : ℝ),
-      { norm_cast,
-        exact h' },
-      have aux'' : 0 < (n₀ : ℝ) := by norm_cast;linarith,
-      have stupid : (n₀ : ℝ) ≠ 0 := by norm_cast;linarith,
-      have h''' : 0 ≤ (n₀ : ℝ) ^ (-(1 : ℝ)),
-      { rw Real.rpow_neg_one,
-        have stupid2 : 0 ≤ (n₀ : ℝ)⁻¹ * n₀ := by simp [inv_mul_cancel stupid],
-        exact nonneg_of_mul_nonneg_left stupid2 aux'' },
-      have h'''' := mul_le_mul_of_nonneg_left h'' h''',
-      rw ←Real.rpow_add aux'' _ _ at h'''',
-      rw add_comm at h'''',
-      rw ←mul_assoc at h'''',
-      apply le_trans h'''',
-      rw Real.rpow_neg_one,
-      rw inv_mul_cancel stupid,
-      linarith },
-    have stupid : (0 : ℝ) ≤ n₀ := sorry, -- easy
-    rw mul_comm,
-    rw Real.rpow_mul stupid,
-    have stupid2 : 0 ≤ (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) := sorry, --easy
-    exact Real.rpow_le_rpow stupid2 goal (le_of_lt hα) },
-  { congr',
-    ext,
-    rw [f_mul_eq, mul_eq_pow] }
-end
+          (∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i)
+    · sorry -- easy here
+    apply le_trans goal3
+    have goal4 : ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i = C
+    · sorry -- `tsum_geometric_of_abs_lt_1` is useful here.
+    rw [goal4]
+    rw [mul_comm]
+    suffices : (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))) ≤ (n : ℝ) ^ α
+    · nlinarith
+    have goal : (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) ≤ (n : ℝ)
+    · have h' := Nat.base_pow_length_digits_le n₀ n aux' h
+      have h'' : (n₀ : ℝ) ^ ((n₀.digits n).length : ℝ) ≤ (n₀ : ℝ) * (n : ℝ)
+      · norm_cast
+      have aux'' : 0 < (n₀ : ℝ) := by norm_cast;linarith
+      have stupid : (n₀ : ℝ) ≠ 0 := by norm_cast;linarith
+      have h''' : 0 ≤ (n₀ : ℝ) ^ (-(1 : ℝ))
+      · rw [Real.rpow_neg_one]
+        have stupid2 : 0 ≤ (n₀ : ℝ)⁻¹ * n₀ := by simp [inv_mul_cancel stupid]
+        exact nonneg_of_mul_nonneg_left stupid2 aux''
+      have h'''' := mul_le_mul_of_nonneg_left h'' h'''
+      rw [←Real.rpow_add aux'' _ _] at h''''
+      rw [add_comm] at h''''
+      rw [←mul_assoc] at h''''
+      apply le_trans h''''
+      rw [Real.rpow_neg_one]
+      rw [inv_mul_cancel stupid]
+      linarith
+    have stupid : (0 : ℝ) ≤ n₀ := sorry -- easy
+    rw [mul_comm]
+    rw [Real.rpow_mul stupid]
+    have stupid2 : 0 ≤ (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) := sorry --easy
+    exact Real.rpow_le_rpow stupid2 goal (le_of_lt hα)
+  · congr
+    ext
+    rw [f_mul_eq, mul_eq_pow]
 
 -- This is lemma 1.2 (this looks hard btw)
 lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n)
   (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
     ∀ n : ℕ, (n ^ α : ℝ) ≤ f n :=
-begin
-  have hα₀ : 0 < α,
-  { rw dα,
-    apply div_pos,
-    { apply Real.log_pos,
-      rw dn₀,
-      exact Nat.find_spec hf },
-    { apply Real.log_pos,
-      norm_cast,
-      exact aux1 hf dn₀ } },
-  have hα : 0 ≤ α := by linarith,
-  have hn₀ : 2 ≤ n₀ := by linarith [aux1 hf dn₀],
-  have : f n₀ = n₀ ^ α := sorry, -- same proof as above
-  let C : ℝ := (1 - (1 - 1 / n₀) ^ α),
-  have hC : 0 ≤ C,
-  { dsimp only [C],
-    field_simp,
-    apply Real.rpow_le_one _ _ hα,
-    { field_simp,
-
-      sorry},
-    {
-      sorry} },
-  suffices : ∀ n : ℕ, C * ((n : ℝ) ^ α) ≤ f n,
-  {sorry}, -- This should be almost the same as above
-  intros n,
-  by_cases hn : n = 0,
-  { subst hn,
-    simp only [map_zero, algebra_map.coe_zero, map_zero],
-    rw Real.zero_rpow,
-    { rw mul_zero },
-    linarith },
-  have length_lt_one : 1 ≤ (n₀.digits n).length,
-  { by_contra goal,
-    simp only [not_le, Nat.lt_one_iff] at goal,
-    rw [list.length_eq_zero, Nat.digits_eq_nil_iff_eq_zero] at goal,
-    contradiction },
+by
+  have hα₀ : 0 < α
+  · rw [dα]
+    apply div_pos
+    · apply Real.log_pos
+      rw [dn₀]
+      exact Nat.find_spec hf
+    · apply Real.log_pos
+      norm_cast
+      exact aux1 hf dn₀
+  have hα : 0 ≤ α := by linarith
+  have hn₀ : 2 ≤ n₀ := by linarith [aux1 hf dn₀]
+  have : f n₀ = n₀ ^ α := sorry -- same proof as above
+  let C : ℝ := (1 - (1 - 1 / n₀) ^ α)
+  have hC : 0 ≤ C
+  · dsimp only [C]
+    field_simp
+    apply Real.rpow_le_one _ _ hα
+    · sorry
+    · sorry
+  suffices : ∀ n : ℕ, C * ((n : ℝ) ^ α) ≤ f n
+  · sorry -- This should be almost the same as above
+  intros n
+  by_cases hn : n = 0
+  · subst hn
+    simp only [CharP.cast_eq_zero, map_zero]
+    rw [Real.zero_rpow]
+    · rw [mul_zero]
+    linarith
+  have length_lt_one : 1 ≤ (n₀.digits n).length
+  · by_contra goal
+    simp only [not_le, Nat.lt_one_iff] at goal
+    rw [List.length_eq_zero, Nat.digits_eq_nil_iff_eq_zero] at goal
+    contradiction
   have h₁ : f ((n₀ : ℚ) ^ ((n₀.digits n).length))
-    - f (((n₀ : ℚ) ^ ((n₀.digits n).length)) - n) ≤ f n,
-  { have goal := abs_sub_map_le_sub f ((n₀ : ℚ) ^ ((n₀.digits n).length)) (((n₀ : ℚ) ^ ((n₀.digits n).length)) - n),
-    simp only [map_pow, sub_sub_cancel] at goal,
-    apply le_trans _ goal,
-    rw map_pow,
-    exact le_abs_self _ },
-  apply le_trans' h₁,
-  rw [mul_eq_pow, this],
-  have h := aux2 hf dn₀ dα,
-  specialize h ((n₀ ^ ((n₀.digits n).length)) - n),
-  have hn₁ : n ≤ n₀ ^ (n₀.digits n).length := by linarith [@Nat.lt_base_pow_length_digits n₀ n hn₀],
+    - f (((n₀ : ℚ) ^ ((n₀.digits n).length)) - n) ≤ f n
+  · have goal := abs_sub_map_le_sub f ((n₀ : ℚ) ^ ((n₀.digits n).length)) (((n₀ : ℚ) ^ ((n₀.digits n).length)) - n)
+    simp only [map_pow, sub_sub_cancel] at goal
+    apply le_trans _ goal
+    rw [map_pow]
+    exact le_abs_self _
+  apply le_trans' h₁
+  rw [mul_eq_pow, this]
+  have h := aux2 hf dn₀ dα
+  specialize h ((n₀ ^ ((n₀.digits n).length)) - n)
+  have hn₁ : n ≤ n₀ ^ (n₀.digits n).length := by linarith [@Nat.lt_base_pow_length_digits n₀ n hn₀]
   have h₂ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ ^ (n₀.digits n).length - n) : ℚ) ^ α ≤
-  ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - f ((n₀ : ℚ) ^ (n₀.digits n).length - (n : ℚ)),
-  { rw sub_le_sub_iff_left,
-    push_cast at h,
-    simp only [rat.cast_sub, rat.cast_pow, rat.cast_coe_Nat],
-    exact h },
-  apply le_trans' h₂,
-  clear h₂,
-  simp only [rat.cast_sub, rat.cast_pow, rat.cast_coe_Nat],
+  ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - f ((n₀ : ℚ) ^ (n₀.digits n).length - (n : ℚ))
+  · rw [sub_le_sub_iff_left]
+    simp only [Rat.cast_sub, Rat.cast_pow, Rat.cast_coe_nat]
+    sorry
+  apply le_trans' h₂
+  simp only [Rat.cast_sub, Rat.cast_pow, Rat.cast_coe_nat]
   have h₃ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ : ℝ) ^ (n₀.digits n).length - (n₀ : ℝ) ^ ((n₀.digits n).length - 1)) ^ α ≤
-    ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ : ℝ) ^ (n₀.digits n).length - (n : ℝ)) ^ α,
-  { rw sub_le_sub_iff_left,
-    apply Real.rpow_le_rpow _ _ hα,
-    { field_simp,
-      norm_cast,
-      exact hn₁ },
-    { field_simp,
-      norm_cast,
-      rw ← Nat.pow_div length_lt_one,
-      { simp only [pow_one],
-        exact Nat.div_le_of_le_mul (Nat.base_pow_length_digits_le n₀ n hn₀ hn) },
-      linarith } },
-  apply le_trans' h₃,
-  clear h₃,
+    ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ : ℝ) ^ (n₀.digits n).length - (n : ℝ)) ^ α
+  · rw [sub_le_sub_iff_left]
+    apply Real.rpow_le_rpow _ _ hα
+    · sorry
+    · sorry
+/-
+      norm_cast
+      rw [← Nat.pow_div length_lt_one]
+      · simp only [pow_one]
+        exact Nat.div_le_of_le_mul (Nat.base_pow_length_digits_le n₀ n hn₀ hn)
+      linarith
+-/
+  apply le_trans' h₃
   have h₄ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length -
     ((n₀ : ℝ) ^ (n₀.digits n).length - (n₀ : ℝ) ^ ((n₀.digits n).length - 1)) ^ α
-      = (((n₀ : ℝ) ^ α) ^ (n₀.digits n).length) * (1 - (1 - 1 / n₀) ^ α),
-  { rw mul_sub,
-    rw mul_one,
-    rw sub_right_inj,
-    repeat {rw ←Real.rpow_Nat_cast},
-    rw ←Real.rpow_mul,  -- This looks stupid here, as I am looking for (a ^ b) ^ c = (a ^ c) ^ b
-    { nth_rewrite 1 mul_comm,
-      rw Real.rpow_mul,
-      { rw ←Real.mul_rpow,
-        { rw mul_sub,
-          rw mul_one,
-          rw Nat.cast_sub length_lt_one,
-          rw Real.rpow_sub,
-          { ring_nf,
-            simp only [algebra_map.coe_one, Real.rpow_one] },
-          norm_cast,
-          linarith [aux1 hf dn₀] },
-        { norm_cast,
+      = (((n₀ : ℝ) ^ α) ^ (n₀.digits n).length) * (1 - (1 - 1 / n₀) ^ α)
+  · rw [mul_sub]
+    rw [mul_one]
+    rw [sub_right_inj]
+    repeat
+      rw [←Real.rpow_Nat_cast]
+    rw [←Real.rpow_mul]  -- This looks stupid here, as I am looking for (a ^ b) ^ c = (a ^ c) ^ b
+    · nth_rewrite 2 [mul_comm]
+      rw [Real.rpow_mul]
+      · rw [←Real.mul_rpow]
+        · rw [mul_sub]
+          rw [mul_one]
+          rw [Nat.cast_sub length_lt_one]
+          rw [Real.rpow_sub]
+          · ring_nf
+            simp only [algebra_map.coe_one, Real.rpow_one]
+          norm_cast
+          linarith [aux1 hf dn₀]
+        · norm_cast
           linarith [Nat.one_le_pow ((n₀.digits n).length)
-            n₀ (by linarith [aux1 hf dn₀])] },
-        { simp only [sub_nonneg],
-          rw one_div_le,
-          { simp only [div_self, ne.def, one_ne_zero, not_false_iff, Nat.one_le_cast],
-            linarith [aux1 hf dn₀] },
-          { norm_cast,
-            linarith [aux1 hf dn₀] },
-          { linarith } } },
-      norm_cast,
-      exact Nat.zero_le n₀ },
-    norm_cast,
-    exact Nat.zero_le n₀ },
-  rw h₄,
-  clear h₄,
-  change (1 - (1 - 1 / (n₀ : ℝ)) ^ α) with C,
-  nth_rewrite 1 mul_comm,
+            n₀ (by linarith [aux1 hf dn₀])]
+        · simp only [sub_nonneg]
+          rw [one_div_le]
+          · simp only [div_self, ne.def, one_ne_zero, not_false_iff, Nat.one_le_cast]
+            linarith [aux1 hf dn₀]
+          · norm_cast
+            linarith [aux1 hf dn₀]
+          · linarith
+      norm_cast
+      exact Nat.zero_le n₀
+    norm_cast
+    exact Nat.zero_le n₀
+  rw [h₄]
+  change (1 - (1 - 1 / (n₀ : ℝ)) ^ α) with C
+  nth_rewrite 2 [mul_comm]
   apply mul_le_mul_of_nonneg_left _ hC,
   suffices goal : (n : ℝ )^ α ≤ ((n₀ : ℝ) ^ (n₀.digits n).length) ^ α,
   { rw ←Real.rpow_Nat_cast at goal ⊢,
@@ -789,8 +768,8 @@ begin
   { norm_cast,
     linarith [@Nat.lt_base_pow_length_digits _ n hn₀] },
   { exact hα }
-end
 
+/-
 lemma archimedean_case (hf : ¬ is_nonarchimedean f) : mul_ring_norm.equiv f mul_ring_norm.Real :=
 begin
   rw ←non_archimedean_iff_Nat_norm_bound at hf,
