@@ -566,9 +566,10 @@ by
     rw [←Nat.ofDigits_digits n₀ n]
   rw [Nat.ofDigits_eq_sum_mapIdx]
   rw [list.map_with_index_sum_to_finset_sum']
-  simp only [Nat.cast_sum, Nat.cast_mul, Nat.cast_pow]
+  simp only [Finset.univ_eq_attach, Nat.cast_sum, Nat.cast_mul, Nat.cast_pow]
   apply le_trans (Sum_le' (n₀.digits n).length _)
   have aux' : 2 ≤ n₀ := by linarith [aux1 hf dn₀]
+  have aux'' : 2 ≤ (n₀ : ℝ) := by norm_cast
   suffices goal_1 : ∑ i : Finset.Iio (n₀.digits n).length,
     f (((((n₀.digits n).nthLe i (Finset.mem_Iio.1 i.2))) : ℚ)
       * (n₀ : ℚ) ^ (i : ℕ)) = ∑ i : Finset.Iio (n₀.digits n).length,
@@ -597,19 +598,62 @@ by
       ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
     · sorry
     rw [goal2]
-    have goal3_aux : ∑ i : (Finset.Iio (n₀.digits n).length),
-      ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ) ≤ ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i
-    · sorry
-    have goal3_aux' : 0 ≤ (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1)))
-    · sorry -- easy
     have goal3 : ((n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))))
       * (∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
         ≤ ((n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1)))) *
           (∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i)
-    · sorry -- easy here
+    · rw [mul_le_mul_left]
+      · -- apply sum_le_tsum (Finset.Iio (n₀.digits n).length)
+        simp only [Finset.univ_eq_attach, one_div, inv_pow]
+        have goal : ∑ i in Finset.attach (Finset.Iio (List.length (Nat.digits n₀ n))),
+          ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ) = ∑ i in Finset.Iio (List.length (Nat.digits n₀ n)),
+            (((n₀ : ℝ) ^ α) ^ i)⁻¹
+        ·
+          sorry
+        rw [goal]
+        refine sum_le_tsum _ ?_ ?_
+        · intro i hi
+          apply le_of_lt
+          apply inv_pos_of_pos
+          apply pow_pos _ i
+          apply Real.rpow_pos_of_pos _ α
+          linarith
+        · have aux : (fun i => (((n₀ : ℝ) ^ α) ^ i)⁻¹) = (fun i => (((n₀ : ℝ) ^ (-α)) ^ i))
+          · ext i
+            rw [Real.rpow_neg (by linarith)]
+            field_simp
+          rw [aux]
+          refine summable_geometric_of_lt_one ?_ ?_
+          ·
+            sorry
+          · rw [Real.rpow_neg (by linarith)]
+            field_simp
+            rw [one_div_lt_of_neg]
+            · sorry
+            · sorry
+            · sorry
+        --have hf : Summable f := sorry
+        --have hf₁ : ∀ i ∉ (Finset.attach (Finset.Iio (List.length (Nat.digits n₀ n)))), 0 ≤ f i := sorry
+        -- refine sum_le_tsum (Finset.attach (Finset.Iio (List.length (Nat.digits n₀ n)))) hf₁ _
+      ·
+        sorry
     apply le_trans goal3
     have goal4 : ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i = C
-    · sorry -- `tsum_geometric_of_abs_lt_1` is useful here.
+    · rw [tsum_geometric_of_abs_lt_one]
+      · field_simp
+      · rw [abs_lt]
+        constructor
+        · suffices goal : 0 < 1 / (n₀ : ℝ) ^ α
+          · linarith
+          rw [one_div_pos]
+          apply Real.rpow_pos_of_pos _ α
+          linarith
+        · rw [one_div_lt]
+          · field_simp
+            exact Real.one_lt_rpow (by linarith) hα
+          · apply Real.rpow_pos_of_pos _ α
+            linarith
+          · linarith
     rw [goal4]
     rw [mul_comm]
     suffices : (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))) ≤ (n : ℝ) ^ α
@@ -661,10 +705,16 @@ by
   let C : ℝ := (1 - (1 - 1 / n₀) ^ α)
   have hC : 0 ≤ C
   · dsimp only [C]
+    have hn₀1 : (2 : ℝ) ≤ (n₀ : ℝ) := by norm_cast
     field_simp
     apply Real.rpow_le_one _ _ hα
-    · sorry
-    · sorry
+    · apply le_of_lt
+      apply div_pos
+      · linarith
+      · linarith
+    · rw [div_le_one]
+      · linarith
+      · linarith
   suffices : ∀ n : ℕ, C * ((n : ℝ) ^ α) ≤ f n
   · sorry -- This should be almost the same as above
   intros n
@@ -695,22 +745,25 @@ by
   ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - f ((n₀ : ℚ) ^ (n₀.digits n).length - (n : ℚ))
   · rw [sub_le_sub_iff_left]
     simp only [Rat.cast_sub, Rat.cast_pow, Rat.cast_coe_nat]
-    sorry
+    push_cast [hn₁] at h
+    exact h
   apply le_trans' h₂
   simp only [Rat.cast_sub, Rat.cast_pow, Rat.cast_coe_nat]
   have h₃ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ : ℝ) ^ (n₀.digits n).length - (n₀ : ℝ) ^ ((n₀.digits n).length - 1)) ^ α ≤
     ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ : ℝ) ^ (n₀.digits n).length - (n : ℝ)) ^ α
   · rw [sub_le_sub_iff_left]
     apply Real.rpow_le_rpow _ _ hα
-    · sorry
-    · sorry
-/-
+    · norm_cast
+      linarith
+    · suffices goal : (n₀ : ℝ) ^ List.length (Nat.digits n₀ n)  ≤
+                        (n₀ : ℝ) ^ List.length (Nat.digits n₀ n) + ((n : ℝ) - (n₀ : ℝ) ^ (List.length (Nat.digits n₀ n) - 1))
+      · linarith
+      simp only [le_add_iff_nonneg_right, sub_nonneg]
       norm_cast
       rw [← Nat.pow_div length_lt_one]
       · simp only [pow_one]
         exact Nat.div_le_of_le_mul (Nat.base_pow_length_digits_le n₀ n hn₀ hn)
       linarith
--/
   apply le_trans' h₃
   have h₄ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length -
     ((n₀ : ℝ) ^ (n₀.digits n).length - (n₀ : ℝ) ^ ((n₀.digits n).length - 1)) ^ α
@@ -748,7 +801,6 @@ by
     norm_cast
     exact Nat.zero_le n₀
   rw [h₄]
-  -- change (1 - (1 - 1 / (n₀ : ℝ)) ^ α) with C
   nth_rewrite 2 [mul_comm]
   apply mul_le_mul_of_nonneg_left _ hC
   suffices goal : (n : ℝ )^ α ≤ ((n₀ : ℝ) ^ (n₀.digits n).length) ^ α

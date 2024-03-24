@@ -78,3 +78,7 @@ by
   simp only [pow_zero]
   exact f.map_one'
   rw [pow_succ, pow_succ, ←hd, f_mul_eq]
+
+example (s : Finset ℕ) (f g : ℕ → ℝ) (h : ∀ i ∈ s, f i = g i) : (Finset.sum s fun i => f i) = Finset.sum s fun i => g i :=
+by
+  exact Finset.sum_congr rfl h
