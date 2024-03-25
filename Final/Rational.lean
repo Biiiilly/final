@@ -591,25 +591,66 @@ by
     have goal1 : ∑ i : (Finset.Iio (n₀.digits n).length),
       f ((n₀.digits n).nthLe ↑i (Finset.mem_Iio.1 i.2)) * (n₀ ^ α) ^ (i : ℕ) ≤
         ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ α) ^ (i : ℕ)
-    · sorry
+    · simp only [Finset.univ_eq_attach]
+      refine GCongr.sum_le_sum ?_
+      intro i hi
+      specialize coef_ineq i
+      have goal : ((n₀ : ℝ) ^ α) ^ (i : ℕ) = 1 * ((n₀ : ℝ) ^ α) ^ (i : ℕ) := by simp only [one_mul]
+      nth_rewrite 2 [goal]
+      refine mul_le_mul_of_nonneg_right coef_ineq ?_
+      apply le_of_lt
+      apply pow_pos
+      exact Real.rpow_pos_of_pos (by linarith) α
     apply le_trans goal1
     have goal2 : (∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ α) ^ (i : ℕ)) =
     (((n₀ : ℝ) ^ (α * ((n₀.digits n).length - 1))) *
       ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
-    · sorry
+    · rw [Finset.mul_sum]
+      simp only [Finset.univ_eq_attach]
+      simp [Finset.sum_attach]
+      field_simp
+      rw [Finset.sum_attach (Finset.Iio (List.length (Nat.digits n₀ n)))
+        (λ x ↦ (n₀ : ℝ) ^ (α * ↑(List.length (Nat.digits n₀ (n / n₀))))
+          * ((n₀ : ℝ) ^ (-α)) ^ (x : ℕ))]
+      rw [Nat.Iio_eq_range]
+      nth_rewrite 1 [←Finset.sum_flip]
+      refine Finset.sum_congr ?_ ?_
+      · field_simp
+      · intro x hx
+        simp only [Finset.mem_range] at hx
+        have hx₁  : x ≤ List.length (Nat.digits n₀ (n / n₀))
+        · have goal : (List.length (Nat.digits n₀ (n / n₀)) + 1) = List.length (Nat.digits n₀ n)
+          · field_simp
+          rw [←goal] at hx
+          linarith
+        rw [←Real.rpow_nat_cast]
+        push_cast [hx₁]
+        rw [@Real.rpow_sub ((n₀ : ℝ) ^ α)]
+        · rw [←Real.rpow_nat_cast]
+          rw [←Real.rpow_mul (by linarith)]
+          rw [div_eq_mul_inv]
+          rw [Real.rpow_neg]
+          rw [Real.inv_rpow]
+          · apply le_of_lt
+            exact Real.rpow_pos_of_pos (by linarith) α
+          · linarith
+        · exact Real.rpow_pos_of_pos (by linarith) α
     rw [goal2]
     have goal3 : ((n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))))
       * (∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
         ≤ ((n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1)))) *
           (∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i)
     · rw [mul_le_mul_left]
-      · -- apply sum_le_tsum (Finset.Iio (n₀.digits n).length)
-        simp only [Finset.univ_eq_attach, one_div, inv_pow]
+      · simp only [Finset.univ_eq_attach, one_div, inv_pow]
         have goal : ∑ i in Finset.attach (Finset.Iio (List.length (Nat.digits n₀ n))),
           ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ) = ∑ i in Finset.Iio (List.length (Nat.digits n₀ n)),
             (((n₀ : ℝ) ^ α) ^ i)⁻¹
-        ·
-          sorry
+        · rw [Finset.sum_attach]
+          refine Finset.sum_congr ?_ ?_
+          · rfl
+          · intro x hx
+            rw [←inv_pow]
+            rw [Real.rpow_neg (by linarith)]
         rw [goal]
         refine sum_le_tsum _ ?_ ?_
         · intro i hi
@@ -624,19 +665,17 @@ by
             field_simp
           rw [aux]
           refine summable_geometric_of_lt_one ?_ ?_
-          ·
-            sorry
+          · apply le_of_lt
+            refine Real.rpow_pos_of_pos ?_ (-α)
+            linarith
           · rw [Real.rpow_neg (by linarith)]
             field_simp
-            rw [one_div_lt_of_neg]
-            · sorry
-            · sorry
-            · sorry
-        --have hf : Summable f := sorry
-        --have hf₁ : ∀ i ∉ (Finset.attach (Finset.Iio (List.length (Nat.digits n₀ n)))), 0 ≤ f i := sorry
-        -- refine sum_le_tsum (Finset.attach (Finset.Iio (List.length (Nat.digits n₀ n)))) hf₁ _
-      ·
-        sorry
+            rw [one_div_lt]
+            · field_simp
+              exact Real.one_lt_rpow (by linarith) hα
+            · exact Real.rpow_pos_of_pos (by linarith) α
+            · linarith
+      · exact Real.rpow_pos_of_pos (by linarith) _
     apply le_trans goal3
     have goal4 : ∑'i : ℕ, (1 / ((n₀ : ℝ) ^ α)) ^ i = C
     · rw [tsum_geometric_of_abs_lt_one]
