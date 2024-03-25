@@ -52,12 +52,12 @@ def MulRingNorm.padic (p : ℕ) [hp : Fact (Nat.Prime p)] : MulRingNorm ℚ :=
   map_mul' := by simp only [padicNorm.mul, Rat.cast_mul, eq_self_iff_true, forall_const]
 }
 
-@[simp] lemma MulRingNorm_eq_padic_norm (p : ℕ) [Fact (Nat.Prime p)] (r : ℚ) :
+@[simp] lemma MulRingNorm_eq_padicNorm (p : ℕ) [Fact (Nat.Prime p)] (r : ℚ) :
   MulRingNorm.padic p r = padicNorm p r := rfl
 
-lemma MulRingNorm.padic_Nonarchimedean (p : ℕ) [hp : Fact (Nat.Prime p)] :
+lemma MulRingNorm.padic_nonarchimedean (p : ℕ) [hp : Fact (Nat.Prime p)] :
     Nonarchimedean (@MulRingNorm.padic p hp) := by
-  simp only [Nonarchimedean_def, MulRingNorm_eq_padic_norm]
+  simp only [Nonarchimedean_def, MulRingNorm_eq_padicNorm]
   exact_mod_cast @padicNorm.nonarchimedean p _
 
 end padic
@@ -83,7 +83,7 @@ lemma a_proper (harc : Nonarchimedean f) : 𝔞 harc ≠ (⊤ : Ideal ℤ) := by
     Int.cast_one, map_one, lt_self_iff_false, not_false_eq_true]
 
 -- Show that it contains pZ
-lemma a_contains_prime_ideal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+lemma a_contains_primeIdeal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
     ∃ (p : ℕ), Fact (Nat.Prime p) ∧ 𝔞 harc ≥ Ideal.span {(p : ℤ)} := by
   obtain ⟨p, hp, hbound⟩ := ex_prime_norm_lt_one harc h_nontriv
   refine ⟨p, hp, ?_⟩
@@ -92,9 +92,9 @@ lemma a_contains_prime_ideal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
   exact hbound
 
 -- Show that it's in Fact equal to pZ (since pZ is a maximal ideal)
-lemma a_eq_prime_ideal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+lemma a_eq_primeIdeal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
     ∃ (p : ℕ), Fact (Nat.Prime p) ∧ 𝔞 harc = Ideal.span {(p : ℤ)} := by
-  obtain ⟨p, hp, hinc⟩ := a_contains_prime_ideal harc h_nontriv
+  obtain ⟨p, hp, hinc⟩ := a_contains_primeIdeal harc h_nontriv
   refine ⟨p, hp, ((PrincipalIdealRing.isMaximal_of_irreducible
     (Nat.prime_iff_prime_int.mp hp.1).irreducible).eq_of_le (a_proper harc) hinc).symm⟩
 
@@ -114,7 +114,7 @@ lemma rearrange {p v : ℝ} (m : ℕ) (hp : p > 0) (hlogp : Real.log p ≠ 0) (h
 lemma int_val_eq (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
     ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
       ∀ (a : ℤ), f a = (@MulRingNorm.padic p hp a)^s := by
-  obtain ⟨p, hp, h_aeq⟩ := a_eq_prime_ideal harc h_nontriv
+  obtain ⟨p, hp, h_aeq⟩ := a_eq_primeIdeal harc h_nontriv
   let hp₀ := hp
   refine ⟨p, hp, ?_⟩
   cases' hp with hp
@@ -152,7 +152,7 @@ lemma int_val_eq (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
     simp only [AddSubmonoid.mem_mk, AddSubsemigroup.mem_mk, Set.mem_setOf_eq, not_lt] at hb
     rw [f_mul_eq, le_antisymm (int_norm_le_one b harc) hb, mul_one, map_pow]
   rw [this]
-  simp only [MulRingNorm_eq_padic_norm, ne_eq, Int.cast_eq_zero, ha, not_false_eq_true,
+  simp only [MulRingNorm_eq_padicNorm, ne_eq, Int.cast_eq_zero, ha, not_false_eq_true,
     padicNorm.eq_zpow_of_nonzero, padicValRat.of_int, zpow_neg, zpow_coe_nat, Rat.cast_inv,
     Rat.cast_pow, Rat.cast_coe_nat]
   unfold padicValInt padicValNat
@@ -182,7 +182,7 @@ lemma rat_val_eq (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
     exact (Real.zero_rpow hs').symm
   have hcast : f (a.den) = (@MulRingNorm.padic p hp a.den) ^ s := h_int a.den
   rw [← Rat.num_div_den a, map_div₀, h_int, hcast]
-  simp only [ha, MulRingNorm_eq_padic_norm, Rat.num_div_den, padicNorm.eq_zpow_of_nonzero,
+  simp only [ha, MulRingNorm_eq_padicNorm, Rat.num_div_den, padicNorm.eq_zpow_of_nonzero,
     Ne.def, not_false_iff, zpow_neg, Rat.cast_inv, Rat.cast_zpow, Rat.cast_coe_nat]
   unfold padicValRat
   rw [(Real.rpow_int_cast _ _).symm]
@@ -208,7 +208,7 @@ lemma f_equiv_padic (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
   refine ⟨one_div_pos.mpr hs, ?_⟩
   ext a
   rw [h, ←Real.rpow_mul]
-  simp only [MulRingNorm_eq_padic_norm, one_div, ne_eq, Ne.symm (ne_of_lt hs), not_false_eq_true,
+  simp only [MulRingNorm_eq_padicNorm, one_div, ne_eq, Ne.symm (ne_of_lt hs), not_false_eq_true,
     mul_inv_cancel, Real.rpow_one]
   unfold MulRingNorm.padic
   simp only [apply_nonneg]
@@ -227,7 +227,7 @@ lemma map_sum_le {R : Type*} [Ring R] (f : MulRingNorm R) (n : ℕ) {ι : ℕ �
         f (∑ i in Finset.range n, ι i) + f (ι n) := by exact map_add_le_add f (∑ x in Finset.range n, ι x) (ι n)
                                         _  ≤ (∑ i in Finset.range n, f (ι i)) + f (ι n) := add_le_add_right hn _
 
-lemma Sum_le' (n : ℕ) (ι : Finset.Iio n → ℚ) :
+lemma map_sum_le' (n : ℕ) (ι : Finset.Iio n → ℚ) :
     f (∑ i : Finset.Iio n, ι i) ≤ ∑ i : Finset.Iio n, f (ι i) := by
   simp only [Finset.univ_eq_attach]
   refine Finset.le_sum_of_subadditive ⇑f ?h_one ?h_mul (Finset.attach (Finset.Iio n)) fun i => ι i
@@ -326,7 +326,7 @@ lemma root_ineq {n : ℕ} (x y : ℚ) (hn : n ≠ 0) (hf : ∀ m : ℕ, f m ≤ 
     exact inter_ineq x y hf
 
 -- A norm is non-archimedean iff it's bounded on the Naturals
-lemma non_archimedean_iff_Nat_norm_bound : (∀ n : ℕ, f n ≤ 1) ↔ Nonarchimedean f := by
+lemma Nonarchimedean_iff_natNorm_bounded : (∀ n : ℕ, f n ≤ 1) ↔ Nonarchimedean f := by
   constructor
   · intros H x y
     have lim : Filter.Tendsto (λ n : ℕ ↦ (n + 1 : ℝ) ^ (1 / (n : ℝ)) * max (f x) (f y)) Filter.atTop (nhds (max (f x) (f y)))
@@ -356,7 +356,7 @@ lemma aux1 {n₀ : ℕ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf)
   · apply hn₀
     simp only [Nat.cast_one, map_one, ge_iff_le, le_refl]
 
-lemma list.map_with_index_append {α M : Type*} [AddCommMonoid M] (K L : List α) (f : ℕ → α → M) :
+lemma List.mapIdx_append' {α M : Type*} [AddCommMonoid M] (K L : List α) (f : ℕ → α → M) :
     (K ++ L).mapIdx f = K.mapIdx f ++ L.mapIdx (λ i a ↦ f (i + K.length) a) := by
   induction' K with a J IH generalizing f
   · simp only [List.nil_append, List.length_nil, add_zero]
@@ -364,7 +364,7 @@ lemma list.map_with_index_append {α M : Type*} [AddCommMonoid M] (K L : List α
   · specialize IH (λ i ↦ f (i + 1))
     simp only [List.cons_append, List.mapIdx_cons, IH, add_assoc, List.length]
 
-lemma list.map_with_index_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
+lemma List.mapIdx_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
   {L : List β} [Inhabited β] : (L.mapIdx f).sum = ∑ i : Finset.Iio L.length,
     f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) := by
   let g := λ i ↦ (f i ((L.get? i).get!))
@@ -386,7 +386,7 @@ lemma list.map_with_index_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f 
   · simp only [List.mapIdx_nil, List.sum_nil, List.length_nil]
     rfl
   · intro M a IH
-    simp only [List.mapIdx_append, List.mapIdx_cons, zero_add, List.mapIdx_nil, List.sum_append, IH,
+    simp only [List.mapIdx_append', List.mapIdx_cons, zero_add, List.mapIdx_nil, List.sum_append, IH,
       List.sum_cons, List.sum_nil, add_zero, List.length_append, List.length_singleton, Nat.Iio_eq_range, Finset.sum_range_succ]
     congr 1
     · apply Finset.sum_congr rfl
@@ -473,9 +473,9 @@ lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = N
   conv_lhs =>
     rw [← Nat.ofDigits_digits n₀ n]
   rw [Nat.ofDigits_eq_sum_mapIdx]
-  rw [list.map_with_index_sum_to_finset_sum]
+  rw [List.mapIdx_sum_to_finset_sum]
   simp only [Finset.univ_eq_attach, Nat.cast_sum, Nat.cast_mul, Nat.cast_pow]
-  apply le_trans (Sum_le' (n₀.digits n).length _)
+  apply le_trans (map_sum_le' (n₀.digits n).length _)
   have aux' : 2 ≤ n₀ := by linarith [aux1 hf dn₀]
   have aux'' : 2 ≤ (n₀ : ℝ) := by norm_cast
   suffices goal_1 : ∑ i : Finset.Iio (n₀.digits n).length,
@@ -767,8 +767,7 @@ lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = N
   suffices goal : (n : ℝ )^ α ≤ ((n₀ : ℝ) ^ (n₀.digits n).length) ^ α
   · rw [← Real.rpow_nat_cast] at goal ⊢
     rw [← Real.rpow_mul]
-    · rw [mul_comm]
-      rw [Real.rpow_mul]
+    · rw [mul_comm, Real.rpow_mul]
       · exact goal
       norm_cast
       exact Nat.zero_le n₀
@@ -782,7 +781,7 @@ lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = N
 
 lemma archimedean_case (hf : ¬ Nonarchimedean f) : MulRingNorm.equiv f MulRingNorm.Real :=
 by
-  rw [← non_archimedean_iff_Nat_norm_bound] at hf
+  rw [← Nonarchimedean_iff_natNorm_bounded] at hf
   simp only [not_forall, not_le] at hf
   let n₀ : ℕ := Nat.find hf
   have dn₀ : n₀ = Nat.find hf := rfl
@@ -833,8 +832,8 @@ theorem rat_ring_norm_p_adic_or_Real (f : MulRingNorm ℚ) (hf_nontriv : f ≠ 1
 by
     by_cases bdd : ∀ z : ℕ, f z ≤ 1
     · right /- p-adic case -/
-      rw [non_archimedean_iff_Nat_norm_bound] at bdd
+      rw [Nonarchimedean_iff_natNorm_bounded] at bdd
       exact f_equiv_padic bdd hf_nontriv
     · left
-      rw [non_archimedean_iff_Nat_norm_bound] at bdd
+      rw [Nonarchimedean_iff_natNorm_bounded] at bdd
       exact archimedean_case bdd /- Euclidean case -/
