@@ -140,7 +140,7 @@ by
 
 -- f a = (f p)^m = ring_norm a
 lemma int_val_eq (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
-  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (hs : s > 0),
+  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
     ∀ (a : ℤ), f a = (@mul_ring_norm.padic p hp a)^s :=
 by
   obtain ⟨p, hp, h_aeq⟩ := a_eq_prime_ideal harc h_nontriv
@@ -208,7 +208,7 @@ by
 
 -- Extend this to ℚ using div_eq
 lemma rat_val_eq (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
-  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (hs : s > 0),
+  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
     ∀ (a : ℚ), f a = (@mul_ring_norm.padic p hp a)^s :=
 by
   obtain ⟨p, hp, s, hs, h_int⟩ := int_val_eq harc h_nontriv
@@ -271,11 +271,25 @@ end non_archimedean
 
 section archimedean
 
--- This should be the same as `Sum_le`
+lemma map_sum_le {R : Type*} [Ring R] (f : MulRingNorm R) (n : ℕ) {ι : ℕ → R} :
+  f (∑ i in Finset.range n, ι i) ≤ ∑ i in Finset.range n, f (ι i) :=
+by
+  induction' n with n hn
+  · simp only [Nat.zero_eq, Finset.range_zero, Finset.sum_empty, map_zero, le_refl]
+  · rw [Finset.sum_range_succ]
+    rw [Finset.sum_range_succ]
+    calc
+      f (∑ x in Finset.range n, ι x + ι n) ≤
+        f (∑ i in Finset.range n, ι i) + f (ι n) := by exact map_add_le_add f (∑ x in Finset.range n, ι x) (ι n)
+                                        _  ≤ (∑ i in Finset.range n, f (ι i)) + f (ι n) := add_le_add_right hn _
+
 lemma Sum_le' (n : ℕ) (ι : Finset.Iio n → ℚ) :
   f (∑ i : Finset.Iio n, ι i) ≤ ∑ i : Finset.Iio n, f (ι i) :=
 by
-  sorry
+  simp only [Finset.univ_eq_attach]
+  refine Finset.le_sum_of_subadditive ⇑f ?h_one ?h_mul (Finset.attach (Finset.Iio n)) fun i => ι i
+  · exact map_zero f
+  · exact fun x y => map_add_le_add f x y
 
 --First limit
 lemma limit1 {N : ℝ} (hN : 0 < N) : Filter.Tendsto (λ n : ℕ ↦ N ^ (1 / (n : ℝ))) Filter.atTop (nhds 1) :=
@@ -331,18 +345,6 @@ by
     left
     exact ha
 
-lemma map_sum_le {R : Type*} [Ring R] (f : MulRingNorm R) (n : ℕ) {ι : ℕ → R} :
-  f (∑ i in Finset.range n, ι i) ≤ ∑ i in Finset.range n, f (ι i) :=
-by
-  induction' n with n hn
-  · simp only [Nat.zero_eq, Finset.range_zero, Finset.sum_empty, map_zero, le_refl]
-  · rw [Finset.sum_range_succ]
-    rw [Finset.sum_range_succ]
-    calc
-      f (∑ x in Finset.range n, ι x + ι n) ≤
-        f (∑ i in Finset.range n, ι i) + f (ι n) := by exact map_add_le_add f (∑ x in Finset.range n, ι x) (ι n)
-                                        _  ≤ (∑ i in Finset.range n, f (ι i)) + f (ι n) := add_le_add_right hn _
-
 lemma inter_ineq {n : ℕ} (x y : ℚ) (hf : ∀ m : ℕ, f m ≤ 1) :
   f (x + y)^(n : ℝ) ≤ (n + 1 : ℝ) * max (f x) (f y)^n :=
 by
@@ -357,7 +359,7 @@ by
         ≤ ∑ i in Finset.range (n + 1), f (x ^ i) * f (y ^ (n - i)) :=
           by
             apply Finset.sum_le_sum
-            intros i hi
+            intros i _
             conv =>
               rhs
               rw [←mul_one (f (x ^ i) * f (y ^ (n - i)))]
@@ -449,31 +451,42 @@ by
   · specialize IH (λ i ↦ f (i + 1))
     simp only [List.cons_append, List.mapIdx_cons, IH, add_assoc, List.length]
 
--- This should be the same as `list.map_with_index_sum_to_finset_sum`
 lemma list.map_with_index_sum_to_finset_sum' {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
   {L : List β}  [Inhabited β] : (L.mapIdx f).sum = ∑ i : Finset.Iio L.length,
-    f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) :=
-by
-  sorry
-
-lemma list.map_with_index_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
-  {L : List β}  [Inhabited β] : (L.mapIdx f).sum = ∑ i in Finset.range L.length,
-    f i ((List.get? L i).orElse default).get! :=
-by
+    f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) := by
+  let g := λ i ↦ (f i ((L.get? i).get!))
+  have goal : ∑ i : Finset.Iio L.length, f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) =
+    ∑ i : Finset.Iio L.length, g i
+  · simp only [Finset.univ_eq_attach]
+    apply Finset.sum_congr rfl
+    intro x _
+    have hx₁ := x.2
+    simp only [Finset.mem_Iio] at hx₁
+    dsimp [g]
+    congr
+    rw [List.get?_eq_get hx₁]
+    rfl
+  rw [goal]
+  simp only [Finset.univ_eq_attach]
+  rw [Finset.sum_attach]
+  dsimp [g]
   refine List.reverseRecOn L ?_ ?_
-  · simp
-  · intros M a IH
-    simp [List.mapIdx_append, IH]
+  · simp only [List.mapIdx_nil, List.sum_nil, List.length_nil]
+    rfl
+  · intro M a IH
+    simp only [List.mapIdx_append, List.mapIdx_cons, zero_add, List.mapIdx_nil, List.sum_append, IH,
+      List.sum_cons, List.sum_nil, add_zero, List.length_append, List.length_singleton]
+    rw [Nat.Iio_eq_range]
     rw [Finset.sum_range_succ]
     congr 1
     · apply Finset.sum_congr rfl
-      intros x hx
+      intro x hx
       congr 2
       rw [Finset.mem_range] at hx
-      -- rw [List.nth_append hx]
-      sorry
-    · simp only [List.get?_concat_length, Option.some_orElse']
+      exact (List.get?_append hx).symm
+    · simp only [List.get?_concat_length]
       exact rfl
+
 
 -- This is lemma 1.1
 lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n)
@@ -539,7 +552,7 @@ by
         · apply le_of_lt
           exact Real.rpow_pos_of_pos hC _
         · exact Real.rpow_nonneg stupid _
-      { rw [mul_pow]
+      · rw [mul_pow]
         rw [←Real.rpow_nat_cast]
         rw [←Real.rpow_nat_cast]
         rw [←Real.rpow_nat_cast]
@@ -547,7 +560,7 @@ by
         have : (N : ℝ) ≠ 0
         · norm_cast
         rw [inv_mul_cancel this, Real.rpow_one]
-        exact aux N }
+        exact aux N
     apply ge_of_tendsto limit'' _
     simp only [Filter.eventually_atTop, ge_iff_le]
     use 1
@@ -559,9 +572,6 @@ by
   · subst h
     simp [hα]
     nlinarith [hC, Real.zero_rpow_nonneg α]
-  have length_lt_one : 0 ≤ ((n₀.digits n).length : ℝ) - 1 -- Not sure whether this is useful or not
-  · norm_num
-    sorry -- should be easy `digits_ne_nil_iff_ne_zero` might be useful
   conv_lhs =>
     rw [←Nat.ofDigits_digits n₀ n]
   rw [Nat.ofDigits_eq_sum_mapIdx]
@@ -593,7 +603,7 @@ by
         ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ α) ^ (i : ℕ)
     · simp only [Finset.univ_eq_attach]
       refine GCongr.sum_le_sum ?_
-      intro i hi
+      intro i _
       specialize coef_ineq i
       have goal : ((n₀ : ℝ) ^ α) ^ (i : ℕ) = 1 * ((n₀ : ℝ) ^ α) ^ (i : ℕ) := by simp only [one_mul]
       nth_rewrite 2 [goal]
@@ -648,12 +658,12 @@ by
         · rw [Finset.sum_attach]
           refine Finset.sum_congr ?_ ?_
           · rfl
-          · intro x hx
+          · intro x _
             rw [←inv_pow]
             rw [Real.rpow_neg (by linarith)]
         rw [goal]
         refine sum_le_tsum _ ?_ ?_
-        · intro i hi
+        · intro i _
           apply le_of_lt
           apply inv_pos_of_pos
           apply pow_pos _ i
@@ -715,10 +725,12 @@ by
       rw [Real.rpow_neg_one]
       rw [inv_mul_cancel stupid]
       linarith
-    have stupid : (0 : ℝ) ≤ n₀ := sorry -- easy
+    have stupid : (0 : ℝ) ≤ n₀ := by linarith -- easy
     rw [mul_comm]
     rw [Real.rpow_mul stupid]
-    have stupid2 : 0 ≤ (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) := sorry --easy
+    have stupid2 : 0 ≤ (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) := by
+      apply le_of_lt
+      exact @Real.rpow_pos_of_pos (n₀ : ℝ) (by linarith) _
     exact Real.rpow_le_rpow stupid2 goal (le_of_lt hα)
   · congr
     ext
@@ -740,22 +752,70 @@ by
       exact aux1 hf dn₀
   have hα : 0 ≤ α := by linarith
   have hn₀ : 2 ≤ n₀ := by linarith [aux1 hf dn₀]
-  have : f n₀ = n₀ ^ α := sorry -- same proof as above
+  have : f n₀ = n₀ ^ α
+  · rw [dα, Real.log_div_log]
+    apply Eq.symm
+    apply Real.rpow_logb
+    · norm_cast
+      exact lt_trans zero_lt_one (aux1 hf dn₀)
+    · apply ne_of_gt
+      norm_cast
+    · have hn₀ := Nat.find_spec hf
+      rw [←dn₀] at hn₀
+      exact lt_trans zero_lt_one hn₀-- same proof as above
   let C : ℝ := (1 - (1 - 1 / n₀) ^ α)
-  have hC : 0 ≤ C
+  have hC : 0 < C
   · dsimp only [C]
     have hn₀1 : (2 : ℝ) ≤ (n₀ : ℝ) := by norm_cast
     field_simp
-    apply Real.rpow_le_one _ _ hα
+    apply Real.rpow_lt_one _ _ hα₀
     · apply le_of_lt
       apply div_pos
       · linarith
       · linarith
-    · rw [div_le_one]
+    · rw [div_lt_one]
       · linarith
       · linarith
   suffices : ∀ n : ℕ, C * ((n : ℝ) ^ α) ≤ f n
-  · sorry -- This should be almost the same as above
+  · intro n
+    have limit' : Filter.Tendsto (λ N : ℕ ↦ C ^ (1 / (N : ℝ))) Filter.atTop (nhds 1)
+    · exact limit1 hC
+    have limit'' : Filter.Tendsto
+      (λ N : ℕ ↦ (C ^ (1 / (N : ℝ))) * (n ^ α)) Filter.atTop (nhds (n ^ α))
+    · have := Filter.Tendsto.mul_const ((n : ℝ) ^ α) limit'
+      simp at this
+      simp
+      exact this
+    have stupid : (0 : ℝ) ≤ n := by norm_cast; exact zero_le n
+    have aux : ∀ N : ℕ, C * ((n ^ α) ^ (N : ℝ)) ≤ (f (n)) ^ (N : ℝ)
+    · intro N
+      rw [←Real.rpow_mul stupid]
+      nth_rewrite 2 [mul_comm]
+      rw [Real.rpow_mul stupid]
+      norm_cast
+      rw [←mul_eq_pow]
+      specialize this (n ^ N)
+      norm_cast
+    have aux1 : ∀ N : ℕ, 0 < N → (C ^ (1 / (N : ℝ))) * (n ^ α) ≤ f (n)
+    · intros N hN
+      have hN₁ : N ≠ 0 := by linarith
+      refine le_of_pow_le_pow_left hN₁ ?_ ?_
+      · exact apply_nonneg f _
+      · rw [mul_pow]
+        rw [←Real.rpow_nat_cast]
+        rw [←Real.rpow_nat_cast]
+        rw [←Real.rpow_nat_cast]
+        rw [←Real.rpow_mul (le_of_lt hC), one_div]
+        have : (N : ℝ) ≠ 0
+        · norm_cast
+        rw [inv_mul_cancel this, Real.rpow_one]
+        exact aux N
+    apply le_of_tendsto limit'' _
+    simp only [Filter.eventually_atTop, ge_iff_le]
+    use 1
+    intros b hb
+    have : 0 < b := (by linarith)
+    exact aux1 b this
   intros n
   by_cases hn : n = 0
   · subst hn
@@ -841,7 +901,7 @@ by
     exact Nat.zero_le n₀
   rw [h₄]
   nth_rewrite 2 [mul_comm]
-  apply mul_le_mul_of_nonneg_left _ hC
+  apply mul_le_mul_of_nonneg_left _ (le_of_lt hC)
   suffices goal : (n : ℝ )^ α ≤ ((n₀ : ℝ) ^ (n₀.digits n).length) ^ α
   · rw [←Real.rpow_nat_cast] at goal ⊢
     rw [←Real.rpow_mul] -- This looks stupid here, as I am looking for (a ^ b) ^ c = (a ^ c) ^ b
