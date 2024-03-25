@@ -1,21 +1,16 @@
-/-
-Copyright (c) 2024 Jiale Miao. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Jiale Miao
--/
 import Final.Nonarchimedean
-import Mathlib.Data.Real.Basic
-import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
+import Mathlib.NumberTheory.Padics.PadicNorm
+import Mathlib.Analysis.SpecialFunctions.Log.Base
+
 
 /-!
 # Ostrowski's theorem for ℚ
 
 ## References
 * https://kconrad.math.uconn.edu/blurbs/gradnumthy/ostrowskinumbfield.pdf
+* https://proofwiki.org/wiki/Ostrowski%27s_Theorem
 
-## Tags
-ring_norm, ostrowski
 -/
 
 open scoped BigOperators
@@ -23,52 +18,47 @@ open scoped BigOperators
 section Real
 
 /-- The usual absolute value on ℚ. -/
-def mul_ring_norm.Real : MulRingNorm ℚ :=
+def MulRingNorm.Real : MulRingNorm ℚ :=
 { toFun     := λ x : ℚ ↦ |x|
   map_zero' := by simp only [Rat.cast_zero, abs_zero]
   add_le'   := norm_add_le
   neg'      := norm_neg
-  eq_zero_of_map_eq_zero' :=
-  by simp only [abs_eq_zero, Rat.cast_eq_zero, imp_self, forall_const]
+  eq_zero_of_map_eq_zero' := by simp only [abs_eq_zero, Rat.cast_eq_zero, imp_self, forall_const]
   map_one' := by simp [algebraMap.coe_one, abs_one]
   map_mul' := by exact fun x y => Rat.normedField.proof_21 x y
 }
 
-@[simp] lemma mul_ring_norm_eq_abs (r : ℚ) : mul_ring_norm.Real r = |r| :=
-by
-  simp only [Rat.cast_abs]
-  rfl
+@[simp] lemma MulRingNorm_eq_abs (r : ℚ) : MulRingNorm.Real r = |r| := by simp only [Rat.cast_abs]; rfl
 
 end Real
 
 section padic
 
 /-- The p-adic norm on ℚ. -/
-def mul_ring_norm.padic (p : ℕ) [hp : Fact (Nat.Prime p)] : MulRingNorm ℚ :=
+def MulRingNorm.padic (p : ℕ) [hp : Fact (Nat.Prime p)] : MulRingNorm ℚ :=
 { toFun    := λ x : ℚ ↦ (padicNorm p x: ℝ)
   map_zero' := by simp only [padicNorm.zero, Rat.cast_zero]
   add_le'   := by
-    simp
+    simp only
     norm_cast
     exact padicNorm.triangle_ineq
-  neg'      := by simp only [padicNorm.neg, eq_self_iff_true, forall_const],
+  neg'      := by simp only [padicNorm.neg, eq_self_iff_true, forall_const]
   eq_zero_of_map_eq_zero' := by
-    simp
+    simp only
     norm_cast
     exact @padicNorm.zero_of_padicNorm_eq_zero p _
-  map_one' := by simp [padicNorm.one]
+  map_one' := by simp only [ne_eq, one_ne_zero, not_false_eq_true, padicNorm.eq_zpow_of_nonzero,
+    padicValRat.one, neg_zero, zpow_zero, Rat.cast_one]
   map_mul' := by simp only [padicNorm.mul, Rat.cast_mul, eq_self_iff_true, forall_const]
 }
 
-@[simp] lemma mul_ring_norm_eq_padic_norm (p : ℕ) [Fact (Nat.Prime p)] (r : ℚ) :
-  mul_ring_norm.padic p r = padicNorm p r := rfl
+@[simp] lemma MulRingNorm_eq_padic_norm (p : ℕ) [Fact (Nat.Prime p)] (r : ℚ) :
+  MulRingNorm.padic p r = padicNorm p r := rfl
 
-lemma mul_ring_norm.padic_is_nonarchimedean (p : ℕ) [hp : Fact (Nat.Prime p)] :
-  is_nonarchimedean (@mul_ring_norm.padic p hp) :=
-by
-  simp only [is_nonarchimedean_def, mul_ring_norm_eq_padic_norm]
+lemma MulRingNorm.padic_Nonarchimedean (p : ℕ) [hp : Fact (Nat.Prime p)] :
+    Nonarchimedean (@MulRingNorm.padic p hp) := by
+  simp only [Nonarchimedean_def, MulRingNorm_eq_padic_norm]
   exact_mod_cast @padicNorm.nonarchimedean p _
-
 
 end padic
 
@@ -77,32 +67,24 @@ variable {f : MulRingNorm ℚ}
 section non_archimedean
 
 -- Show that 𝔞 is an ideal
--- Maybe this should be inserted into the final proof.
-def 𝔞 (harc : is_nonarchimedean f) : Ideal ℤ :=
+def 𝔞 (harc : Nonarchimedean f) : Ideal ℤ :=
 { carrier := {a : ℤ | f a < 1},
   add_mem' := @λ a b ha hb ↦ by simp only [Set.mem_setOf_eq, Int.cast_add] at ha hb ⊢; linarith [(harc a b), (max_lt ha hb)],
   zero_mem' := by simp only [Set.mem_setOf_eq, Int.cast_zero, map_zero, zero_lt_one],
   smul_mem' := @λ a b hb ↦ by
-    simp [Algebra.id.smul_eq_mul, Set.mem_setOf_eq, Int.cast_mul,
-    map_mul]
+    simp only [smul_eq_mul, Set.mem_setOf_eq, Int.cast_mul, map_mul]
     simp only [Set.mem_setOf_eq] at hb
-    refine Right.mul_lt_one_of_le_of_lt_of_nonneg ?ha hb ?b0
-    · exact int_norm_le_one a harc
-    · exact apply_nonneg f ↑b}
+    exact Right.mul_lt_one_of_le_of_lt_of_nonneg (int_norm_le_one a harc) hb (apply_nonneg f ↑b) }
 
---Maybe this should be inserted into the final proof.
-lemma a_proper (harc : is_nonarchimedean f) : 𝔞 harc ≠ (⊤ : Ideal ℤ) :=
-by
+lemma a_proper (harc : Nonarchimedean f) : 𝔞 harc ≠ (⊤ : Ideal ℤ) := by
   rw [Ideal.ne_top_iff_one]
   dsimp only [𝔞, Submodule.mem_mk, Set.mem_setOf_eq, Int.cast_one, not_lt]
   simp only [Submodule.mem_mk, AddSubmonoid.mem_mk, AddSubsemigroup.mem_mk, Set.mem_setOf_eq,
     Int.cast_one, map_one, lt_self_iff_false, not_false_eq_true]
 
 -- Show that it contains pZ
--- Maybe this should be inserted into the final proof.
-lemma a_contains_prime_ideal (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
-  ∃ (p : ℕ), Fact (Nat.Prime p) ∧ 𝔞 harc ≥ Ideal.span {(p : ℤ)} :=
-by
+lemma a_contains_prime_ideal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+    ∃ (p : ℕ), Fact (Nat.Prime p) ∧ 𝔞 harc ≥ Ideal.span {(p : ℤ)} := by
   obtain ⟨p, hp, hbound⟩ := ex_prime_norm_lt_one harc h_nontriv
   refine ⟨p, hp, ?_⟩
   apply Ideal.span_le.mpr
@@ -110,49 +92,39 @@ by
   exact hbound
 
 -- Show that it's in Fact equal to pZ (since pZ is a maximal ideal)
--- Maybe this should be inserted into the final proof.
-lemma a_eq_prime_ideal (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
-  ∃ (p : ℕ), Fact (Nat.Prime p) ∧ 𝔞 harc = Ideal.span {(p : ℤ)} :=
-by
+lemma a_eq_prime_ideal (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+    ∃ (p : ℕ), Fact (Nat.Prime p) ∧ 𝔞 harc = Ideal.span {(p : ℤ)} := by
   obtain ⟨p, hp, hinc⟩ := a_contains_prime_ideal harc h_nontriv
   refine ⟨p, hp, ((PrincipalIdealRing.isMaximal_of_irreducible
     (Nat.prime_iff_prime_int.mp hp.1).irreducible).eq_of_le (a_proper harc) hinc).symm⟩
 
--- I will try to see whether there is a similar version of this (hopefully)
-lemma mult_finite {a : ℤ} {p : ℕ} (hp : Nat.Prime p) (ha : a ≠ 0) :
-  multiplicity.Finite (p : ℤ) a :=
-by
-  apply multiplicity.finite_int_iff.mpr
-  simp only [Int.natAbs_ofNat, ne_eq, hp.ne_one, not_false_eq_true, ha, and_self]
-
 -- the equality at the end of the next lemma
 lemma rearrange {p v : ℝ} (m : ℕ) (hp : p > 0) (hlogp : Real.log p ≠ 0) (hv : v > 0) :
-  v ^ m = (p ^ m)⁻¹ ^ (-Real.log v / Real.log p) :=
-by
+    v ^ m = (p ^ m)⁻¹ ^ (-Real.log v / Real.log p) := by
   have : p ^ m = p ^ (m : ℝ) := by norm_cast
-  rw [←Real.rpow_neg_one, this, ←(Real.rpow_mul (le_of_lt hp)),
-    ←(Real.rpow_mul (le_of_lt hp)), neg_div, mul_neg, mul_neg, mul_one, neg_mul, neg_neg,
-      mul_div, ←Real.log_rpow hv, Real.rpow_def_of_pos hp, mul_div_left_comm,
+  rw [← Real.rpow_neg_one, this, ← (Real.rpow_mul (le_of_lt hp)),
+    ← (Real.rpow_mul (le_of_lt hp)), neg_div, mul_neg, mul_neg, mul_one, neg_mul, neg_neg,
+      mul_div, ← Real.log_rpow hv, Real.rpow_def_of_pos hp, mul_div_left_comm,
         div_self hlogp, mul_one, Real.exp_log]
   · norm_cast
   · norm_cast
     exact pow_pos hv m
 
 -- f a = (f p)^m = ring_norm a
-lemma int_val_eq (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
-  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
-    ∀ (a : ℤ), f a = (@mul_ring_norm.padic p hp a)^s :=
-by
+lemma int_val_eq (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+    ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
+      ∀ (a : ℤ), f a = (@MulRingNorm.padic p hp a)^s := by
   obtain ⟨p, hp, h_aeq⟩ := a_eq_prime_ideal harc h_nontriv
+  let hp₀ := hp
   refine ⟨p, hp, ?_⟩
   cases' hp with hp
-  have fpgt0 := @norm_pos_of_ne_zero f _ (Nat.cast_ne_zero.mpr (ne_of_gt hp.pos))
-  let s := (-Real.log (f p : ℝ) / Real.log p)
+  have fpgt0 := map_pos_of_ne_zero f (Nat.cast_ne_zero.mpr (ne_of_gt hp.pos))
+  let s := (- Real.log (f p : ℝ) / Real.log p)
   have hs : s > 0
   · refine div_pos ?_ (@Real.log_pos p (by exact_mod_cast hp.one_lt))
     · refine neg_pos.mpr ((Real.log_neg_iff fpgt0).mpr ?_)
       have p_mem_a : (p : ℤ) ∈ Ideal.span ({(p : ℤ)} : Set ℤ) := by rw [Ideal.mem_span_singleton]
-      rw [←h_aeq] at p_mem_a
+      rw [← h_aeq] at p_mem_a
       exact p_mem_a
   refine ⟨s, hs, ?_⟩
   intro a
@@ -161,15 +133,14 @@ by
     symm
     apply (Real.zero_rpow)
     linarith
-  obtain ⟨b, hapb, hndiv⟩ := multiplicity.exists_eq_pow_mul_and_not_dvd (mult_finite hp ha)
-  let m := (multiplicity (p : ℤ) a).get (mult_finite hp ha)
+  obtain ⟨b, hapb, hndiv⟩ := multiplicity.exists_eq_pow_mul_and_not_dvd ((@padicValRat.finite_int_prime_iff _ hp₀ _).2 ha)
+  let m := (multiplicity (p : ℤ) a).get ((@padicValRat.finite_int_prime_iff _ hp₀ _).2 ha)
   have : f a = (f p) ^ m
   · rw [hapb]
-    have hb : ↑b ∉ 𝔞 harc
+    have hb : b ∉ 𝔞 harc
     · rw [h_aeq]
       intro hmem
-      rw [Ideal.mem_span_singleton'] at hmem
-      obtain ⟨k, hk⟩ := hmem
+      obtain ⟨k, hk⟩ := Ideal.mem_span_singleton'.1 hmem
       apply hndiv
       rw [dvd_iff_exists_eq_mul_left]
       refine ⟨k, hk.symm⟩
@@ -179,9 +150,9 @@ by
     · convert h''
       norm_cast
     simp only [AddSubmonoid.mem_mk, AddSubsemigroup.mem_mk, Set.mem_setOf_eq, not_lt] at hb
-    rw [f_mul_eq, le_antisymm (int_norm_le_one b harc) hb, mul_one, mul_eq_pow]
+    rw [f_mul_eq, le_antisymm (int_norm_le_one b harc) hb, mul_one, map_pow]
   rw [this]
-  simp only [mul_ring_norm_eq_padic_norm, ne_eq, Int.cast_eq_zero, ha, not_false_eq_true,
+  simp only [MulRingNorm_eq_padic_norm, ne_eq, Int.cast_eq_zero, ha, not_false_eq_true,
     padicNorm.eq_zpow_of_nonzero, padicValRat.of_int, zpow_neg, zpow_coe_nat, Rat.cast_inv,
     Rat.cast_pow, Rat.cast_coe_nat]
   unfold padicValInt padicValNat
@@ -198,19 +169,10 @@ by
     · linarith
     · linarith
 
-lemma cast_pow_sub (r : ℝ) (a b : ℤ) : r ^ (a - b) = r ^ ((a : ℝ) - (b : ℝ)) := by norm_cast
-
-lemma cast_pow (r : ℝ) (a : ℕ) : r ^ a = r ^ (a : ℝ) := by norm_cast
-
-example (q : ℚ) : q.den ≠ 0 :=
-by
-  exact q.den_nz
-
 -- Extend this to ℚ using div_eq
-lemma rat_val_eq (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
-  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
-    ∀ (a : ℚ), f a = (@mul_ring_norm.padic p hp a)^s :=
-by
+lemma rat_val_eq (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+    ∃ (p : ℕ) (hp : Fact (Nat.Prime p)) (s : ℝ) (_ : s > 0),
+      ∀ (a : ℚ), f a = (@MulRingNorm.padic p hp a) ^ s := by
   obtain ⟨p, hp, s, hs, h_int⟩ := int_val_eq harc h_nontriv
   refine ⟨p, hp, s, hs, ?_⟩
   intro a
@@ -218,53 +180,37 @@ by
   · rw [ha, map_zero, map_zero]
     have hs' : s ≠ 0 := by linarith
     exact (Real.zero_rpow hs').symm
-  have hcast : f (a.den) = (@mul_ring_norm.padic p hp a.den) ^ s := h_int a.den
-  rw [←Rat.num_div_den a, ring_norm.div_eq, h_int, hcast]
-  simp only [ha, mul_ring_norm_eq_padic_norm, Rat.num_div_den, padicNorm.eq_zpow_of_nonzero,
+  have hcast : f (a.den) = (@MulRingNorm.padic p hp a.den) ^ s := h_int a.den
+  rw [← Rat.num_div_den a, map_div₀, h_int, hcast]
+  simp only [ha, MulRingNorm_eq_padic_norm, Rat.num_div_den, padicNorm.eq_zpow_of_nonzero,
     Ne.def, not_false_iff, zpow_neg, Rat.cast_inv, Rat.cast_zpow, Rat.cast_coe_nat]
   unfold padicValRat
-  rw [cast_pow_sub, Real.rpow_sub]
+  rw [(Real.rpow_int_cast _ _).symm]
+  push_cast
+  rw [Real.rpow_sub]
   unfold padicNorm
   simp only [Int.cast_eq_zero, Rat.num_ne_zero_of_ne_zero ha, ↓reduceIte, padicValRat.of_int,
     zpow_neg, zpow_coe_nat, Rat.cast_inv, Rat.cast_pow, Rat.cast_coe_nat, Nat.cast_eq_zero,
     Rat.den_nz a, padicValRat.of_nat, Int.cast_ofNat, Real.rpow_nat_cast, inv_div]
   rw [Real.inv_rpow, Real.inv_rpow]
   simp only [inv_div_inv]
-  rw [←Real.div_rpow]
-  · cases' hp with hp
-    rw [cast_pow]
-    exact Real.rpow_nonneg (le_of_lt (Nat.cast_pos.mpr hp.pos)) _
-  · cases' hp with hp
-    rw [cast_pow]
-    exact Real.rpow_nonneg (le_of_lt (Nat.cast_pos.mpr hp.pos)) _
-  · cases' hp with hp
-    rw [cast_pow]
-    exact Real.rpow_nonneg (le_of_lt (Nat.cast_pos.mpr hp.pos)) _
-  · cases' hp with hp
-    rw [cast_pow]
-    exact Real.rpow_nonneg (le_of_lt (Nat.cast_pos.mpr hp.pos)) _
-  · cases' hp with hp
-    exact (Nat.cast_pos.mpr hp.pos)
-  · norm_cast
-    exact Rat.den_nz a
-
-
-example (s : ℝ) (h : 0 < s) : s ≠ 0 :=
-by
-  exact Ne.symm (ne_of_lt h)
+  rw [← Real.div_rpow]
+  repeat
+    rw [(Real.rpow_nat_cast _ _).symm]
+    exact Real.rpow_nonneg (le_of_lt (Nat.cast_pos.mpr hp.1.pos)) _
+  exact (Nat.cast_pos.mpr hp.1.pos)
 
 -- Finish: hence f and padic are equivalent
-lemma f_equiv_padic (harc : is_nonarchimedean f) (h_nontriv : f ≠ 1) :
- ∃ (p : ℕ) (hp : Fact (Nat.Prime p)), mul_ring_norm.equiv f (@mul_ring_norm.padic p hp) :=
-by
+lemma f_equiv_padic (harc : Nonarchimedean f) (h_nontriv : f ≠ 1) :
+    ∃ (p : ℕ) (hp : Fact (Nat.Prime p)), MulRingNorm.equiv f (@MulRingNorm.padic p hp) := by
   obtain ⟨p, hp, s, hs, h⟩ := rat_val_eq harc h_nontriv
   refine ⟨p, hp, 1 / s, ?_⟩
   refine ⟨one_div_pos.mpr hs, ?_⟩
   ext a
   rw [h, ←Real.rpow_mul]
-  simp only [mul_ring_norm_eq_padic_norm, one_div, ne_eq, Ne.symm (ne_of_lt hs), not_false_eq_true,
+  simp only [MulRingNorm_eq_padic_norm, one_div, ne_eq, Ne.symm (ne_of_lt hs), not_false_eq_true,
     mul_inv_cancel, Real.rpow_one]
-  unfold mul_ring_norm.padic
+  unfold MulRingNorm.padic
   simp only [apply_nonneg]
 
 end non_archimedean
@@ -272,28 +218,24 @@ end non_archimedean
 section archimedean
 
 lemma map_sum_le {R : Type*} [Ring R] (f : MulRingNorm R) (n : ℕ) {ι : ℕ → R} :
-  f (∑ i in Finset.range n, ι i) ≤ ∑ i in Finset.range n, f (ι i) :=
-by
+    f (∑ i in Finset.range n, ι i) ≤ ∑ i in Finset.range n, f (ι i) := by
   induction' n with n hn
   · simp only [Nat.zero_eq, Finset.range_zero, Finset.sum_empty, map_zero, le_refl]
-  · rw [Finset.sum_range_succ]
-    rw [Finset.sum_range_succ]
+  · rw [Finset.sum_range_succ, Finset.sum_range_succ]
     calc
       f (∑ x in Finset.range n, ι x + ι n) ≤
         f (∑ i in Finset.range n, ι i) + f (ι n) := by exact map_add_le_add f (∑ x in Finset.range n, ι x) (ι n)
                                         _  ≤ (∑ i in Finset.range n, f (ι i)) + f (ι n) := add_le_add_right hn _
 
 lemma Sum_le' (n : ℕ) (ι : Finset.Iio n → ℚ) :
-  f (∑ i : Finset.Iio n, ι i) ≤ ∑ i : Finset.Iio n, f (ι i) :=
-by
+    f (∑ i : Finset.Iio n, ι i) ≤ ∑ i : Finset.Iio n, f (ι i) := by
   simp only [Finset.univ_eq_attach]
   refine Finset.le_sum_of_subadditive ⇑f ?h_one ?h_mul (Finset.attach (Finset.Iio n)) fun i => ι i
   · exact map_zero f
   · exact fun x y => map_add_le_add f x y
 
 --First limit
-lemma limit1 {N : ℝ} (hN : 0 < N) : Filter.Tendsto (λ n : ℕ ↦ N ^ (1 / (n : ℝ))) Filter.atTop (nhds 1) :=
-by
+lemma limit1 {N : ℝ} (hN : 0 < N) : Filter.Tendsto (λ n : ℕ ↦ N ^ (1 / (n : ℝ))) Filter.atTop (nhds 1) := by
   rw [←Real.exp_log hN]
   simp_rw [←Real.exp_mul]
   refine Real.tendsto_exp_nhds_zero_nhds_one.comp ?_
@@ -301,20 +243,15 @@ by
   apply tendsto_const_div_atTop_nhds_zero_nat
 
 --Second limit
-lemma limit2 (c : ℝ) (hc : 0 < c) : Filter.Tendsto (λ n : ℕ ↦ (1 + (n : ℝ)*c)^(1 / (n : ℝ))) Filter.atTop (nhds 1) :=
-by
-  have cne0 : c ≠ 0 := ne_of_gt hc
+lemma limit2 (c : ℝ) (hc : 0 < c) : Filter.Tendsto (λ n : ℕ ↦ (1 + (n : ℝ) * c) ^ (1 / (n : ℝ))) Filter.atTop (nhds 1) := by
   have : (λ n : ℕ ↦ (1+(n : ℝ)*c)^(1 / (n : ℝ)))
     = (λ (x : ℝ) ↦ x ^ (1 / ((1 / c) * x  + (- 1) / c))) ∘ (λ y : ℝ ↦ 1 + c*y) ∘ (@Nat.cast ℝ Real.natCast)
   · ext n
-    simp
-    rw [mul_add, ←mul_assoc]
-    simp
-    rw [div_eq_mul_inv, add_comm c⁻¹, add_assoc, neg_mul, one_mul,
-      add_right_neg, add_zero, inv_mul_cancel cne0, one_mul, mul_comm]
+    simp only [one_div, Function.comp_apply]
+    rw [mul_add, ←mul_assoc, mul_one, div_eq_mul_inv, add_comm c⁻¹, add_assoc, neg_mul, one_mul,
+      add_right_neg, add_zero, inv_mul_cancel (ne_of_gt hc), one_mul, mul_comm]
   rw [this]
-  have : 1 / c ≠ 0 := one_div_ne_zero cne0
-  refine (tendsto_rpow_div_mul_add 1 (1 / c) (-1 / c) this.symm).comp ?_
+  refine (tendsto_rpow_div_mul_add 1 (1 / c) (-1 / c) (one_div_ne_zero (ne_of_gt hc)).symm).comp ?_
   have goal : Filter.Tendsto (λ y : ℝ ↦ 1 + c*y) Filter.atTop Filter.atTop
   · apply Filter.tendsto_atTop_add_const_left
     apply Filter.Tendsto.const_mul_atTop hc
@@ -323,18 +260,7 @@ by
   refine Filter.Tendsto.comp goal ?_
   exact tendsto_nat_cast_atTop_atTop
 
---Potentially useful
-example : Filter.Tendsto (λ n : ℕ ↦((n : ℝ))^(1 / (n : ℝ))) Filter.atTop (nhds 1) :=
-by
-  have hf : (λ n : ℕ ↦ (n : ℝ)^(1 / (n : ℝ))) = λ n : ℕ ↦ (((λ x : ℝ ↦ x^(1 / x)) ∘ Nat.cast) n)
-  · ext
-    simp only [one_div, Function.comp_apply]
-  rw [hf]
-  apply Filter.Tendsto.comp _ tendsto_nat_cast_atTop_atTop
-  exact tendsto_rpow_div
-
-lemma pow_mul_pow_le_max_pow {a b : ℝ} {m n : ℕ} (ha : 0 ≤ a) (hb : 0 ≤ b) : a^m * b^n ≤ max a b ^ (m + n) :=
-by
+lemma pow_mul_pow_le_max_pow {a b : ℝ} {m n : ℕ} (ha : 0 ≤ a) (hb : 0 ≤ b) : a ^ m * b ^ n ≤ max a b ^ (m + n) := by
   rw [pow_add]
   apply mul_le_mul
   · exact pow_le_pow_left ha (le_max_left a b) m
@@ -346,12 +272,11 @@ by
     exact ha
 
 lemma inter_ineq {n : ℕ} (x y : ℚ) (hf : ∀ m : ℕ, f m ≤ 1) :
-  f (x + y)^(n : ℝ) ≤ (n + 1 : ℝ) * max (f x) (f y)^n :=
-by
+    f (x + y) ^ (n : ℝ) ≤ (n + 1 : ℝ) * max (f x) (f y) ^ n := by
   norm_cast
-  rw [←mul_eq_pow, add_pow]
+  rw [← map_pow, add_pow]
   apply le_trans (map_sum_le f (n + 1))
-  suffices goal_1 : ∑ i in Finset.range (n + 1), f (x ^ i * y^(n - i) * (n.choose i))
+  suffices goal_1 : ∑ i in Finset.range (n + 1), f (x ^ i * y ^ (n - i) * (n.choose i))
     = ∑ i in Finset.range (n + 1), f (x ^ i) * f (y ^ (n - i)) * f (n.choose i)
   · rw [goal_1]
     calc
@@ -377,7 +302,7 @@ by
               rhs
               rw [←this]
             repeat
-              rw [mul_eq_pow]
+              rw [map_pow]
             exact pow_mul_pow_le_max_pow (apply_nonneg f x) (apply_nonneg f y)
       _ = ↑(n + 1) * max (f x) (f y) ^ n := by simp
   · congr
@@ -385,8 +310,7 @@ by
     rw [f_mul_eq, f_mul_eq]
 
 lemma root_ineq {n : ℕ} (x y : ℚ) (hn : n ≠ 0) (hf : ∀ m : ℕ, f m ≤ 1) :
-  f (x + y) ≤ (n + 1 : ℝ) ^ (1 / (n : ℝ)) * max (f x) (f y) :=
-by
+    f (x + y) ≤ (n + 1 : ℝ) ^ (1 / (n : ℝ)) * max (f x) (f y) := by
   refine le_of_pow_le_pow_left hn ?_ ?_
   · apply mul_nonneg
     · apply Real.rpow_nonneg
@@ -396,19 +320,13 @@ by
       left
       exact apply_nonneg f x
   · rw [mul_pow]
-    have : 0 ≤ (n : ℝ) + 1
-    · norm_cast
-      linarith
-    nth_rewrite 2 [←Real.rpow_nat_cast]
-    rw [←Real.rpow_mul this, one_div]
-    have : (n : ℝ) ≠ 0
-    · norm_cast
-    rw [inv_mul_cancel this, Real.rpow_one, ←Real.rpow_nat_cast]
+    have : 0 ≤ (n : ℝ) + 1 := by norm_cast; linarith
+    nth_rewrite 2 [← Real.rpow_nat_cast]
+    rw [← Real.rpow_mul this, one_div, inv_mul_cancel (by norm_cast), Real.rpow_one, ←Real.rpow_nat_cast]
     exact inter_ineq x y hf
 
 -- A norm is non-archimedean iff it's bounded on the Naturals
-lemma non_archimedean_iff_Nat_norm_bound : (∀ n : ℕ, f n ≤ 1) ↔ is_nonarchimedean f :=
-by
+lemma non_archimedean_iff_Nat_norm_bound : (∀ n : ℕ, f n ≤ 1) ↔ Nonarchimedean f := by
   constructor
   · intros H x y
     have lim : Filter.Tendsto (λ n : ℕ ↦ (n + 1 : ℝ) ^ (1 / (n : ℝ)) * max (f x) (f y)) Filter.atTop (nhds (max (f x) (f y)))
@@ -418,41 +336,36 @@ by
       · rw [goal_1]
         exact limit2 1 (Real.zero_lt_one)
       · ext k
-        simp
-        rw [add_comm]
+        simp only [one_div, mul_one, add_comm]
     apply ge_of_tendsto lim _
     simp only [Filter.eventually_atTop, ge_iff_le]
     use 1
     intros b hb
-    have : b ≠ 0 := Nat.one_le_iff_ne_zero.mp hb
-    exact root_ineq x y this H
+    exact root_ineq x y (Nat.one_le_iff_ne_zero.mp hb) H
   · intros hf n
     exact nat_norm_le_one n hf
 
-lemma aux1 {n₀ : ℕ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) : 1 < n₀ :=
-by
+lemma aux1 {n₀ : ℕ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) : 1 < n₀ := by
   have hn₀ := Nat.find_spec hf
-  rw [←dn₀] at hn₀
+  rw [← dn₀] at hn₀
   by_contra
   rw [lt_iff_not_ge] at hn₀
   interval_cases n₀
   · apply hn₀
     simp only [Nat.cast_zero, map_zero, ge_iff_le, zero_le_one]
   · apply hn₀
-    simp [f.map_one']
+    simp only [Nat.cast_one, map_one, ge_iff_le, le_refl]
 
-lemma list.map_with_index_append' {α M : Type*} [AddCommMonoid M]
-  (K L : List α) (f : ℕ → α → M) :
-  (K ++ L).mapIdx f = K.mapIdx f ++ L.mapIdx (λ i a ↦ f (i + K.length) a) :=
-by
+lemma list.map_with_index_append {α M : Type*} [AddCommMonoid M] (K L : List α) (f : ℕ → α → M) :
+    (K ++ L).mapIdx f = K.mapIdx f ++ L.mapIdx (λ i a ↦ f (i + K.length) a) := by
   induction' K with a J IH generalizing f
   · simp only [List.nil_append, List.length_nil, add_zero]
     exact rfl
   · specialize IH (λ i ↦ f (i + 1))
     simp only [List.cons_append, List.mapIdx_cons, IH, add_assoc, List.length]
 
-lemma list.map_with_index_sum_to_finset_sum' {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
-  {L : List β}  [Inhabited β] : (L.mapIdx f).sum = ∑ i : Finset.Iio L.length,
+lemma list.map_with_index_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ → β → A}
+  {L : List β} [Inhabited β] : (L.mapIdx f).sum = ∑ i : Finset.Iio L.length,
     f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) := by
   let g := λ i ↦ (f i ((L.get? i).get!))
   have goal : ∑ i : Finset.Iio L.length, f i ((L.nthLe i (Finset.mem_Iio.1 i.2))) =
@@ -462,22 +375,19 @@ lemma list.map_with_index_sum_to_finset_sum' {β A : Type*} [AddCommMonoid A] {f
     intro x _
     have hx₁ := x.2
     simp only [Finset.mem_Iio] at hx₁
-    dsimp [g]
     congr
     rw [List.get?_eq_get hx₁]
     rfl
   rw [goal]
   simp only [Finset.univ_eq_attach]
   rw [Finset.sum_attach]
-  dsimp [g]
+  dsimp only [g]
   refine List.reverseRecOn L ?_ ?_
   · simp only [List.mapIdx_nil, List.sum_nil, List.length_nil]
     rfl
   · intro M a IH
     simp only [List.mapIdx_append, List.mapIdx_cons, zero_add, List.mapIdx_nil, List.sum_append, IH,
-      List.sum_cons, List.sum_nil, add_zero, List.length_append, List.length_singleton]
-    rw [Nat.Iio_eq_range]
-    rw [Finset.sum_range_succ]
+      List.sum_cons, List.sum_nil, add_zero, List.length_append, List.length_singleton, Nat.Iio_eq_range, Finset.sum_range_succ]
     congr 1
     · apply Finset.sum_congr rfl
       intro x hx
@@ -487,12 +397,9 @@ lemma list.map_with_index_sum_to_finset_sum' {β A : Type*} [AddCommMonoid A] {f
     · simp only [List.get?_concat_length]
       exact rfl
 
-
 -- This is lemma 1.1
-lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n)
-  (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
-    ∀ n : ℕ, f n ≤ n ^ α :=
-by
+lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
+    ∀ n : ℕ, f n ≤ n ^ α := by
   have : f n₀ = n₀ ^ α
   · rw [dα, Real.log_div_log]
     apply Eq.symm
@@ -517,31 +424,28 @@ by
   let C : ℝ := ((n₀ : ℝ) ^ α) / ((n₀ : ℝ) ^ α - 1)
   have dc : C = ((n₀ : ℝ) ^ α) / ((n₀ : ℝ) ^ α - 1) := rfl
   have hC : 0 < C
-  · rw [dc]
-    rw [← this]
+  · rw [dc, ← this]
     have hn₀ := Nat.find_spec hf
-    rw [←dn₀] at hn₀
+    rw [← dn₀] at hn₀
     apply div_pos
     linarith
     linarith
   suffices : ∀ n : ℕ, f n ≤ C * ((n : ℝ) ^ α)
   · intro n
-    have limit' : Filter.Tendsto (λ N : ℕ ↦ C ^ (1 / (N : ℝ))) Filter.atTop (nhds 1)
-    · exact limit1 hC
     have limit'' : Filter.Tendsto
       (λ N : ℕ ↦ (C ^ (1 / (N : ℝ))) * (n ^ α)) Filter.atTop (nhds (n ^ α))
-    · have := Filter.Tendsto.mul_const ((n : ℝ) ^ α) limit'
-      simp at this
-      simp
+    · have := Filter.Tendsto.mul_const ((n : ℝ) ^ α) (limit1 hC)
+      simp only [one_div, one_mul] at this
+      simp only [one_div]
       exact this
     have stupid : (0 : ℝ) ≤ n := by norm_cast; exact zero_le n
     have aux : ∀ N : ℕ, (f (n)) ^ (N : ℝ) ≤ C * ((n ^ α) ^ (N : ℝ))
     · intro N
-      rw [←Real.rpow_mul stupid]
+      rw [← Real.rpow_mul stupid]
       nth_rewrite 2 [mul_comm]
       rw [Real.rpow_mul stupid]
       norm_cast
-      rw [←mul_eq_pow]
+      rw [← map_pow]
       specialize this (n ^ N)
       norm_cast
     have aux1 : ∀ N : ℕ, 0 < N → f (n) ≤ (C ^ (1 / (N : ℝ))) * (n ^ α)
@@ -552,30 +456,24 @@ by
         · apply le_of_lt
           exact Real.rpow_pos_of_pos hC _
         · exact Real.rpow_nonneg stupid _
-      · rw [mul_pow]
-        rw [←Real.rpow_nat_cast]
-        rw [←Real.rpow_nat_cast]
-        rw [←Real.rpow_nat_cast]
-        rw [←Real.rpow_mul (le_of_lt hC), one_div]
-        have : (N : ℝ) ≠ 0
-        · norm_cast
-        rw [inv_mul_cancel this, Real.rpow_one]
+      · rw [mul_pow, ← Real.rpow_nat_cast,
+          ← Real.rpow_nat_cast, ← Real.rpow_nat_cast,
+            ← Real.rpow_mul (le_of_lt hC), one_div, inv_mul_cancel (by norm_cast), Real.rpow_one]
         exact aux N
     apply ge_of_tendsto limit'' _
     simp only [Filter.eventually_atTop, ge_iff_le]
     use 1
     intros b hb
-    have : 0 < b := (by linarith)
-    exact aux1 b this
+    exact aux1 b (by linarith)
   intro n
   by_cases h : n = 0
   · subst h
-    simp [hα]
+    simp only [CharP.cast_eq_zero, map_zero]
     nlinarith [hC, Real.zero_rpow_nonneg α]
   conv_lhs =>
-    rw [←Nat.ofDigits_digits n₀ n]
+    rw [← Nat.ofDigits_digits n₀ n]
   rw [Nat.ofDigits_eq_sum_mapIdx]
-  rw [list.map_with_index_sum_to_finset_sum']
+  rw [list.map_with_index_sum_to_finset_sum]
   simp only [Finset.univ_eq_attach, Nat.cast_sum, Nat.cast_mul, Nat.cast_pow]
   apply le_trans (Sum_le' (n₀.digits n).length _)
   have aux' : 2 ≤ n₀ := by linarith [aux1 hf dn₀]
@@ -616,31 +514,23 @@ by
     (((n₀ : ℝ) ^ (α * ((n₀.digits n).length - 1))) *
       ∑ i : (Finset.Iio (n₀.digits n).length), ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ))
     · rw [Finset.mul_sum]
-      simp only [Finset.univ_eq_attach]
-      simp [Finset.sum_attach]
+      simp only [Finset.univ_eq_attach, Finset.sum_attach]
       field_simp
       rw [Finset.sum_attach (Finset.Iio (List.length (Nat.digits n₀ n)))
         (λ x ↦ (n₀ : ℝ) ^ (α * ↑(List.length (Nat.digits n₀ (n / n₀))))
-          * ((n₀ : ℝ) ^ (-α)) ^ (x : ℕ))]
-      rw [Nat.Iio_eq_range]
+          * ((n₀ : ℝ) ^ (-α)) ^ (x : ℕ)), Nat.Iio_eq_range]
       nth_rewrite 1 [←Finset.sum_flip]
-      refine Finset.sum_congr ?_ ?_
-      · field_simp
+      refine Finset.sum_congr (by field_simp) ?_
       · intro x hx
         simp only [Finset.mem_range] at hx
-        have hx₁  : x ≤ List.length (Nat.digits n₀ (n / n₀))
-        · have goal : (List.length (Nat.digits n₀ (n / n₀)) + 1) = List.length (Nat.digits n₀ n)
-          · field_simp
-          rw [←goal] at hx
+        have hx₁ : x ≤ List.length (Nat.digits n₀ (n / n₀))
+        · have goal : (List.length (Nat.digits n₀ (n / n₀)) + 1) = List.length (Nat.digits n₀ n) := by field_simp
+          rw [← goal] at hx
           linarith
-        rw [←Real.rpow_nat_cast]
+        rw [← Real.rpow_nat_cast]
         push_cast [hx₁]
         rw [@Real.rpow_sub ((n₀ : ℝ) ^ α)]
-        · rw [←Real.rpow_nat_cast]
-          rw [←Real.rpow_mul (by linarith)]
-          rw [div_eq_mul_inv]
-          rw [Real.rpow_neg]
-          rw [Real.inv_rpow]
+        · rw [← Real.rpow_nat_cast, ← Real.rpow_mul (by linarith), div_eq_mul_inv, Real.rpow_neg, Real.inv_rpow]
           · apply le_of_lt
             exact Real.rpow_pos_of_pos (by linarith) α
           · linarith
@@ -656,11 +546,9 @@ by
           ((n₀ : ℝ) ^ (-α)) ^ (i : ℕ) = ∑ i in Finset.Iio (List.length (Nat.digits n₀ n)),
             (((n₀ : ℝ) ^ α) ^ i)⁻¹
         · rw [Finset.sum_attach]
-          refine Finset.sum_congr ?_ ?_
-          · rfl
+          refine Finset.sum_congr rfl ?_
           · intro x _
-            rw [←inv_pow]
-            rw [Real.rpow_neg (by linarith)]
+            rw [← inv_pow, Real.rpow_neg (by linarith)]
         rw [goal]
         refine sum_le_tsum _ ?_ ?_
         · intro i _
@@ -703,44 +591,35 @@ by
           · apply Real.rpow_pos_of_pos _ α
             linarith
           · linarith
-    rw [goal4]
-    rw [mul_comm]
+    rw [goal4, mul_comm]
     suffices : (n₀ : ℝ) ^ (α * (((n₀.digits n).length - 1))) ≤ (n : ℝ) ^ α
     · nlinarith
     have goal : (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) ≤ (n : ℝ)
     · have h' := Nat.base_pow_length_digits_le n₀ n aux' h
-      have h'' : (n₀ : ℝ) ^ ((n₀.digits n).length : ℝ) ≤ (n₀ : ℝ) * (n : ℝ)
-      · norm_cast
-      have aux'' : 0 < (n₀ : ℝ) := by norm_cast;linarith
-      have stupid : (n₀ : ℝ) ≠ 0 := by norm_cast;linarith
+      have h'' : (n₀ : ℝ) ^ ((n₀.digits n).length : ℝ) ≤ (n₀ : ℝ) * (n : ℝ) := by norm_cast
+      have aux'' : 0 < (n₀ : ℝ) := by norm_cast; linarith
+      have stupid : (n₀ : ℝ) ≠ 0 := by norm_cast; linarith
       have h''' : 0 ≤ (n₀ : ℝ) ^ (-(1 : ℝ))
       · rw [Real.rpow_neg_one]
         have stupid2 : 0 ≤ (n₀ : ℝ)⁻¹ * n₀ := by simp [inv_mul_cancel stupid]
         exact nonneg_of_mul_nonneg_left stupid2 aux''
       have h'''' := mul_le_mul_of_nonneg_left h'' h'''
-      rw [←Real.rpow_add aux'' _ _] at h''''
-      rw [add_comm] at h''''
-      rw [←mul_assoc] at h''''
+      rw [← Real.rpow_add aux'' _ _, add_comm, ←mul_assoc] at h''''
       apply le_trans h''''
-      rw [Real.rpow_neg_one]
-      rw [inv_mul_cancel stupid]
+      rw [Real.rpow_neg_one, inv_mul_cancel stupid]
       linarith
-    have stupid : (0 : ℝ) ≤ n₀ := by linarith -- easy
-    rw [mul_comm]
-    rw [Real.rpow_mul stupid]
+    rw [mul_comm, Real.rpow_mul (by linarith)]
     have stupid2 : 0 ≤ (n₀ : ℝ) ^ (((n₀.digits n).length : ℝ) - 1) := by
       apply le_of_lt
       exact @Real.rpow_pos_of_pos (n₀ : ℝ) (by linarith) _
     exact Real.rpow_le_rpow stupid2 goal (le_of_lt hα)
   · congr
     ext
-    rw [f_mul_eq, mul_eq_pow]
+    rw [f_mul_eq, map_pow]
 
--- This is lemma 1.2 (this looks hard btw)
-lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n)
-  (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
-    ∀ n : ℕ, (n ^ α : ℝ) ≤ f n :=
-by
+-- This is lemma 1.2
+lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
+    ∀ n : ℕ, (n ^ α : ℝ) ≤ f n := by
   have hα₀ : 0 < α
   · rw [dα]
     apply div_pos
@@ -762,7 +641,7 @@ by
       norm_cast
     · have hn₀ := Nat.find_spec hf
       rw [←dn₀] at hn₀
-      exact lt_trans zero_lt_one hn₀-- same proof as above
+      exact lt_trans zero_lt_one hn₀
   let C : ℝ := (1 - (1 - 1 / n₀) ^ α)
   have hC : 0 < C
   · dsimp only [C]
@@ -778,22 +657,20 @@ by
       · linarith
   suffices : ∀ n : ℕ, C * ((n : ℝ) ^ α) ≤ f n
   · intro n
-    have limit' : Filter.Tendsto (λ N : ℕ ↦ C ^ (1 / (N : ℝ))) Filter.atTop (nhds 1)
-    · exact limit1 hC
     have limit'' : Filter.Tendsto
       (λ N : ℕ ↦ (C ^ (1 / (N : ℝ))) * (n ^ α)) Filter.atTop (nhds (n ^ α))
-    · have := Filter.Tendsto.mul_const ((n : ℝ) ^ α) limit'
-      simp at this
-      simp
+    · have := Filter.Tendsto.mul_const ((n : ℝ) ^ α) (limit1 hC)
+      simp only [one_div, one_mul] at this
+      simp only [one_div]
       exact this
     have stupid : (0 : ℝ) ≤ n := by norm_cast; exact zero_le n
-    have aux : ∀ N : ℕ, C * ((n ^ α) ^ (N : ℝ)) ≤ (f (n)) ^ (N : ℝ)
+    have aux : ∀ N : ℕ, C * ((n ^ α) ^ (N : ℝ)) ≤ (f n) ^ (N : ℝ)
     · intro N
-      rw [←Real.rpow_mul stupid]
+      rw [← Real.rpow_mul stupid]
       nth_rewrite 2 [mul_comm]
       rw [Real.rpow_mul stupid]
       norm_cast
-      rw [←mul_eq_pow]
+      rw [← map_pow]
       specialize this (n ^ N)
       norm_cast
     have aux1 : ∀ N : ℕ, 0 < N → (C ^ (1 / (N : ℝ))) * (n ^ α) ≤ f (n)
@@ -801,21 +678,15 @@ by
       have hN₁ : N ≠ 0 := by linarith
       refine le_of_pow_le_pow_left hN₁ ?_ ?_
       · exact apply_nonneg f _
-      · rw [mul_pow]
-        rw [←Real.rpow_nat_cast]
-        rw [←Real.rpow_nat_cast]
-        rw [←Real.rpow_nat_cast]
-        rw [←Real.rpow_mul (le_of_lt hC), one_div]
-        have : (N : ℝ) ≠ 0
-        · norm_cast
-        rw [inv_mul_cancel this, Real.rpow_one]
+      · rw [mul_pow, ← Real.rpow_nat_cast, ← Real.rpow_nat_cast,
+          ← Real.rpow_nat_cast, ← Real.rpow_mul (le_of_lt hC), one_div,
+            inv_mul_cancel (by norm_cast), Real.rpow_one]
         exact aux N
     apply le_of_tendsto limit'' _
     simp only [Filter.eventually_atTop, ge_iff_le]
     use 1
     intros b hb
-    have : 0 < b := (by linarith)
-    exact aux1 b this
+    exact aux1 b (by linarith)
   intros n
   by_cases hn : n = 0
   · subst hn
@@ -825,8 +696,7 @@ by
     linarith
   have length_lt_one : 1 ≤ (n₀.digits n).length
   · by_contra goal
-    simp only [not_le, Nat.lt_one_iff] at goal
-    rw [List.length_eq_zero, Nat.digits_eq_nil_iff_eq_zero] at goal
+    simp only [not_le, Nat.lt_one_iff, List.length_eq_zero, Nat.digits_eq_nil_iff_eq_zero] at goal
     contradiction
   have h₁ : f ((n₀ : ℚ) ^ ((n₀.digits n).length))
     - f (((n₀ : ℚ) ^ ((n₀.digits n).length)) - n) ≤ f n
@@ -836,7 +706,7 @@ by
     rw [map_pow]
     exact le_abs_self _
   apply le_trans' h₁
-  rw [mul_eq_pow, this]
+  rw [map_pow, this]
   have h := aux2 hf dn₀ dα
   specialize h ((n₀ ^ ((n₀.digits n).length)) - n)
   have hn₁ : n ≤ n₀ ^ (n₀.digits n).length := by linarith [@Nat.lt_base_pow_length_digits n₀ n hn₀]
@@ -867,20 +737,12 @@ by
   have h₄ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length -
     ((n₀ : ℝ) ^ (n₀.digits n).length - (n₀ : ℝ) ^ ((n₀.digits n).length - 1)) ^ α
       = (((n₀ : ℝ) ^ α) ^ (n₀.digits n).length) * (1 - (1 - 1 / n₀) ^ α)
-  · rw [mul_sub]
-    rw [mul_one]
-    rw [sub_right_inj]
-    rw [←Real.rpow_nat_cast]
-    rw [←Real.rpow_nat_cast]
-    rw [←Real.rpow_nat_cast]
-    rw [←Real.rpow_mul]  -- This looks stupid here, as I am looking for (a ^ b) ^ c = (a ^ c) ^ b
+  · rw [mul_sub, mul_one, sub_right_inj, ← Real.rpow_nat_cast,
+      ← Real.rpow_nat_cast, ← Real.rpow_nat_cast, ←Real.rpow_mul]
     · nth_rewrite 2 [mul_comm]
       rw [Real.rpow_mul]
       · rw [←Real.mul_rpow]
-        · rw [mul_sub]
-          rw [mul_one]
-          rw [Nat.cast_sub length_lt_one]
-          rw [Real.rpow_sub]
+        · rw [mul_sub, mul_one, Nat.cast_sub length_lt_one, Real.rpow_sub]
           · ring_nf
             simp only [algebraMap.coe_one, Real.rpow_one]
           norm_cast
@@ -903,8 +765,8 @@ by
   nth_rewrite 2 [mul_comm]
   apply mul_le_mul_of_nonneg_left _ (le_of_lt hC)
   suffices goal : (n : ℝ )^ α ≤ ((n₀ : ℝ) ^ (n₀.digits n).length) ^ α
-  · rw [←Real.rpow_nat_cast] at goal ⊢
-    rw [←Real.rpow_mul] -- This looks stupid here, as I am looking for (a ^ b) ^ c = (a ^ c) ^ b
+  · rw [← Real.rpow_nat_cast] at goal ⊢
+    rw [← Real.rpow_mul]
     · rw [mul_comm]
       rw [Real.rpow_mul]
       · exact goal
@@ -918,9 +780,9 @@ by
   · norm_cast
   · exact hα
 
-lemma archimedean_case (hf : ¬ is_nonarchimedean f) : mul_ring_norm.equiv f mul_ring_norm.Real :=
+lemma archimedean_case (hf : ¬ Nonarchimedean f) : MulRingNorm.equiv f MulRingNorm.Real :=
 by
-  rw [←non_archimedean_iff_Nat_norm_bound] at hf
+  rw [← non_archimedean_iff_Nat_norm_bound] at hf
   simp only [not_forall, not_le] at hf
   let n₀ : ℕ := Nat.find hf
   have dn₀ : n₀ = Nat.find hf := rfl
@@ -933,7 +795,7 @@ by
   · intro n
     rw [Nat.abs_cast n]
     exact h₃ n
-  apply mul_ring_norm.equiv_symm _
+  apply MulRingNorm.equiv_symm _
   refine ⟨α, ?_, ?_⟩
   · rw [hα]
     apply div_pos
@@ -943,36 +805,31 @@ by
       norm_cast
       exact aux1 hf dn₀
   · ext x
-    rw [mul_ring_norm_eq_abs]
-    rw [←Rat.num_div_den x]
+    rw [MulRingNorm_eq_abs, ← Rat.num_div_den x]
     norm_cast
-    rw [←Rat.coe_int_div_eq_divInt]
-    rw [abs_div]
+    rw [← Rat.coe_int_div_eq_divInt, abs_div]
     push_cast
-    rw [ring_norm.div_eq]
+    rw [map_div₀]
     · rw [Real.div_rpow]
       · congr
         · cases' x.num with b b
           · simp only [Int.ofNat_eq_coe, Int.cast_ofNat]
             exact (h₄ b).symm
           · simp only [Int.cast_negSucc, Nat.cast_add, Nat.cast_one, neg_add_rev]
-            rw [←abs_neg]
-            rw [←map_neg_eq_map]
+            rw [← abs_neg, ← map_neg_eq_map]
             simp only [neg_add_rev, neg_neg]
             norm_cast
             exact (h₃ (b + 1)).symm
         · exact (h₄ x.den).symm
       · exact norm_nonneg ((x.num) : ℝ)
       · exact norm_nonneg ((x.den) : ℝ)
-    · norm_cast
-      exact Rat.den_nz x
 
 end archimedean
 
 /-- Ostrowski's Theorem -/
 theorem rat_ring_norm_p_adic_or_Real (f : MulRingNorm ℚ) (hf_nontriv : f ≠ 1) :
-  (mul_ring_norm.equiv f mul_ring_norm.Real) ∨
-  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)), mul_ring_norm.equiv f (@mul_ring_norm.padic p hp) :=
+  (MulRingNorm.equiv f MulRingNorm.Real) ∨
+  ∃ (p : ℕ) (hp : Fact (Nat.Prime p)), MulRingNorm.equiv f (@MulRingNorm.padic p hp) :=
 by
     by_cases bdd : ∀ z : ℕ, f z ≤ 1
     · right /- p-adic case -/
