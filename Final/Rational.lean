@@ -397,7 +397,7 @@ lemma List.mapIdx_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ �
     · simp only [List.get?_concat_length]
       exact rfl
 
--- This is lemma 1.1
+-- This is lemma 4
 lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
     ∀ n : ℕ, f n ≤ n ^ α := by
   have : f n₀ = n₀ ^ α
@@ -617,7 +617,7 @@ lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = N
     ext
     rw [f_mul_eq, map_pow]
 
--- This is lemma 1.2
+-- This is lemma 5
 lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
     ∀ n : ℕ, (n ^ α : ℝ) ≤ f n := by
   have hα₀ : 0 < α
@@ -826,7 +826,7 @@ by
 end archimedean
 
 /-- Ostrowski's Theorem -/
-theorem rat_ring_norm_p_adic_or_Real (f : MulRingNorm ℚ) (hf_nontriv : f ≠ 1) :
+theorem RatRingNorm_padic_or_real {f : MulRingNorm ℚ} (hf_nontriv : f ≠ 1) :
   (MulRingNorm.equiv f MulRingNorm.Real) ∨
   ∃ (p : ℕ) (hp : Fact (Nat.Prime p)), MulRingNorm.equiv f (@MulRingNorm.padic p hp) :=
 by
