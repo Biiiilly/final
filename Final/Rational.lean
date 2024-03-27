@@ -398,7 +398,7 @@ lemma List.mapIdx_sum_to_finset_sum {β A : Type*} [AddCommMonoid A] {f : ℕ �
       exact rfl
 
 -- This is lemma 4
-lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
+lemma lemma4 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
     ∀ n : ℕ, f n ≤ n ^ α := by
   have : f n₀ = n₀ ^ α
   · rw [dα, Real.log_div_log]
@@ -618,7 +618,7 @@ lemma aux2 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = N
     rw [f_mul_eq, map_pow]
 
 -- This is lemma 5
-lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
+lemma lemma5 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = Nat.find hf) (dα : α = Real.log (f n₀) / Real.log n₀) :
     ∀ n : ℕ, (n ^ α : ℝ) ≤ f n := by
   have hα₀ : 0 < α
   · rw [dα]
@@ -707,7 +707,7 @@ lemma aux3 {n₀ : ℕ} {α : ℝ} (hf : ∃ n : ℕ, 1 < f n) (dn₀ : n₀ = N
     exact le_abs_self _
   apply le_trans' h₁
   rw [map_pow, this]
-  have h := aux2 hf dn₀ dα
+  have h := lemma4 hf dn₀ dα
   specialize h ((n₀ ^ ((n₀.digits n).length)) - n)
   have hn₁ : n ≤ n₀ ^ (n₀.digits n).length := by linarith [@Nat.lt_base_pow_length_digits n₀ n hn₀]
   have h₂ : ((n₀ : ℝ) ^ α) ^ (n₀.digits n).length - ((n₀ ^ (n₀.digits n).length - n) : ℚ) ^ α ≤
@@ -789,7 +789,7 @@ by
   have hα : α =  Real.log (f n₀) / Real.log n₀ := rfl
   have h₃ : ∀ (n : ℕ), f (n : ℚ) = (n : ℝ) ^ α
   · intro n
-    linarith [aux3 hf dn₀ hα n, aux2 hf dn₀ hα n]
+    linarith [lemma5 hf dn₀ hα n, lemma4 hf dn₀ hα n]
   have h₄ : ∀ (n : ℕ), f (n : ℚ) = |(n : ℝ)| ^ α
   · intro n
     rw [Nat.abs_cast n]
